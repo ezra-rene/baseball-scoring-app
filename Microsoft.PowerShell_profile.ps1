@@ -1,0 +1,1 @@
+function baseball { cd C:\claude\baseballscoringapp; flutter run }
