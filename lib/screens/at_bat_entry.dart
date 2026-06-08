@@ -216,8 +216,8 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                 results: const [
                   (PlayResult.error, 'E'),
                   (PlayResult.fieldersChoice, 'FC'),
-                  (PlayResult.sacrificeBunt, 'SAC'),
-                  (PlayResult.sacrificeFly, 'SF'),
+                  (PlayResult.sacrificeBunt, 'SAC Bunt'),
+                  (PlayResult.sacrificeFly, 'SAC Fly'),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,

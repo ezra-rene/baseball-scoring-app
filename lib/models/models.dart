@@ -284,9 +284,9 @@ class PlateAppearance {
       case PlayResult.fieldersChoice:
         return 'FC';
       case PlayResult.sacrificeBunt:
-        return 'SAC';
+        return 'SBNT';
       case PlayResult.sacrificeFly:
-        return 'SF';
+        return 'SFLY';
       case PlayResult.groundOut:
         return fielderNotation.isEmpty ? 'GO' : fielderNotation;
       case PlayResult.flyOut:

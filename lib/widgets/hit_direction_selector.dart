@@ -152,15 +152,15 @@ class _FieldPainter extends CustomPainter {
       canvas.drawLine(Offset(cx, cy), Offset(ex, ey), linePaint);
     }
 
-    // Foul lines
+    // Foul lines — drawn outside the outermost hit zone sectors (±1.25 rad)
     final foulPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
-      ..strokeWidth = 1.0;
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..strokeWidth = 1.5;
     canvas.drawLine(
-        Offset(cx, cy), Offset(cx - maxR * sin(1.1), cy - maxR * cos(1.1)),
+        Offset(cx, cy), Offset(cx - maxR * sin(1.25), cy - maxR * cos(1.25)),
         foulPaint);
     canvas.drawLine(
-        Offset(cx, cy), Offset(cx + maxR * sin(1.1), cy - maxR * cos(1.1)),
+        Offset(cx, cy), Offset(cx + maxR * sin(1.25), cy - maxR * cos(1.25)),
         foulPaint);
 
     // Outfield arc

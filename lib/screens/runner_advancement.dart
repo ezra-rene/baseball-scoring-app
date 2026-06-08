@@ -17,9 +17,14 @@ int smartDefaultBase(int currentBase, PlayResult batterResult) {
     case PlayResult.walk:
     case PlayResult.intentionalWalk:
     case PlayResult.hitByPitch:
-      // Only forced runners advance (bases loaded → everyone moves 1)
-      // Simplified: advance 1 if forced (handled as advance 1)
+      // Only forced runners advance
       return currentBase + 1 <= 3 ? currentBase + 1 : 4;
+    case PlayResult.sacrificeBunt:
+      // All runners advance exactly one base on a sac bunt
+      return currentBase >= 3 ? 4 : currentBase + 1;
+    case PlayResult.sacrificeFly:
+      // Runner on 3rd scores; others hold (may tag up — let scorer decide)
+      return currentBase == 3 ? 4 : currentBase;
     default:
       // No automatic advancement on outs, strikeouts, etc.
       return currentBase;
