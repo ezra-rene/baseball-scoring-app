@@ -13,6 +13,8 @@ class GameSummary {
   final bool isTopOfInning;
   final GameStatus status;
   final DateTime startTime;
+  final String venue;
+  final String eventName;
 
   const GameSummary({
     required this.id,
@@ -24,6 +26,8 @@ class GameSummary {
     required this.isTopOfInning,
     required this.status,
     required this.startTime,
+    this.venue = '',
+    this.eventName = '',
   });
 
   String get statusLabel {
@@ -47,6 +51,8 @@ class GameSummary {
         isTopOfInning: game.isTopOfInning,
         status: game.status,
         startTime: game.startTime,
+        venue: game.info.venue,
+        eventName: game.info.eventName,
       );
 }
 

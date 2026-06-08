@@ -12,6 +12,7 @@ class EditPAResult {
   final bool scored;
   final int rbis;
   final HitDirection? hitDirection;
+  final bool deleted;
 
   const EditPAResult({
     required this.paId,
@@ -23,6 +24,7 @@ class EditPAResult {
     required this.scored,
     required this.rbis,
     this.hitDirection,
+    this.deleted = false,
   });
 }
 
@@ -122,6 +124,50 @@ class _EditPASheetState extends State<EditPASheet> {
       _isError = r == PlayResult.error;
       _selectedFielders.clear();
     });
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF0D2137),
+        title: const Text('Delete At-Bat?',
+            style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Remove this at-bat for ${widget.playerName} in inning ${widget.inning}? This cannot be undone.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700),
+            onPressed: () {
+              Navigator.pop(context); // close dialog
+              Navigator.pop(                // close sheet with delete result
+                context,
+                EditPAResult(
+                  paId: widget.pa.id,
+                  result: widget.pa.result,
+                  fielderNotation: widget.pa.fielderNotation,
+                  reachedFirst: widget.pa.reachedFirst,
+                  reachedSecond: widget.pa.reachedSecond,
+                  reachedThird: widget.pa.reachedThird,
+                  scored: widget.pa.scored,
+                  rbis: widget.pa.rbis,
+                  deleted: true,
+                ),
+              );
+            },
+            child: const Text('Delete',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirm() {
@@ -324,7 +370,7 @@ class _EditPASheetState extends State<EditPASheet> {
                     });
                   },
                 ),
-                if (_selectedFielders.isNotEmpty)
+                if (_selectedFielders.isNotEmpty && !_isFlyOrLine)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
@@ -397,6 +443,20 @@ class _EditPASheetState extends State<EditPASheet> {
               ),
 
               const SizedBox(height: 24),
+              // Delete button
+              OutlinedButton.icon(
+                onPressed: _confirmDelete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Delete At-Bat'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade300,
+                  side: BorderSide(color: Colors.red.shade800),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
@@ -407,8 +467,7 @@ class _EditPASheetState extends State<EditPASheet> {
                         side: const BorderSide(color: Colors.white24),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: const Text('Cancel'),
                     ),
@@ -423,8 +482,7 @@ class _EditPASheetState extends State<EditPASheet> {
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: const Text('Save Changes',
                           style: TextStyle(

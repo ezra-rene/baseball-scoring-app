@@ -246,8 +246,7 @@ class _GameCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isComplete = summary.status == GameStatus.complete;
     final date = summary.startTime;
-    final dateStr =
-        '${date.month}/${date.day}/${date.year}  ${_formatTime(date)}';
+    final dateStr = '${date.month}/${date.day}/${date.year}  ${_formatTime(date)}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -302,6 +301,43 @@ class _GameCard extends StatelessWidget {
                   ),
                 ],
               ),
+              // Event name / venue (only if set)
+              if (summary.eventName.isNotEmpty || summary.venue.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    if (summary.eventName.isNotEmpty) ...[
+                      const Icon(Icons.emoji_events_outlined,
+                          size: 12, color: Colors.white38),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          summary.eventName,
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                    if (summary.eventName.isNotEmpty && summary.venue.isNotEmpty)
+                      const Text('  ·  ',
+                          style: TextStyle(color: Colors.white24, fontSize: 12)),
+                    if (summary.venue.isNotEmpty) ...[
+                      const Icon(Icons.location_on_outlined,
+                          size: 12, color: Colors.white38),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          summary.venue,
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
               const SizedBox(height: 10),
               // Score line
               Row(

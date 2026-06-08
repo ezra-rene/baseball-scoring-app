@@ -122,16 +122,22 @@ class _DiamondPainter extends CustomPainter {
 
     // --- Result text ---
     final hasFielders = pa!.fielderNotation.isNotEmpty;
+    // Skip the second notation line when displayText already contains the
+    // fielder info (flyOut "F7", lineOut "L7", groundOut/DP/TP "6-3" etc.)
+    final showFielderLine = hasFielders &&
+        pa!.displayText != pa!.fielderNotation &&
+        pa!.result != PlayResult.flyOut &&
+        pa!.result != PlayResult.lineOut;
     final fontSize = size.width * 0.17;
     final textColor = pa!.isOut ? pathColor.withValues(alpha: 0.9) : pathColor;
-    // If there's fielder notation, shift main text up slightly to make room
-    final textOffset = hasFielders
+    // If there's a separate fielder notation line, shift main text up slightly
+    final textOffset = showFielderLine
         ? Offset(cx, cy - size.height * 0.08)
         : Offset(cx, cy);
     _drawText(canvas, pa!.displayText, textOffset, fontSize, textColor,
         bold: true);
-    // Fielder notation below main text
-    if (hasFielders) {
+    // Fielder notation below main text (e.g. "6-3", "E6", "6-4-3")
+    if (showFielderLine) {
       _drawText(
         canvas,
         pa!.fielderNotation,

@@ -281,7 +281,9 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                     });
                   },
                 ),
-                if (_selectedFielders.isNotEmpty)
+                if (_selectedFielders.isNotEmpty &&
+                    _result != PlayResult.flyOut &&
+                    _result != PlayResult.lineOut)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(

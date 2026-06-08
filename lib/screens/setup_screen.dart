@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/game_provider.dart';
+import '../services/lineup_ocr_service.dart';
 import 'game_info_sheet.dart';
 import 'scorebook_screen.dart';
 
@@ -75,6 +77,142 @@ class _SetupScreenState extends State<SetupScreen>
     );
   }
 
+  /// Scan a lineup card photo and, after user review, apply to the given team.
+  Future<void> _scanLineup({required bool isHome}) async {
+    // Ask camera vs gallery
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF0D2137),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Text('Scan Lineup Card',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Take a photo or choose from gallery',
+                style: TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.lightBlueAccent),
+              title: const Text('Camera', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.lightBlueAccent),
+              title: const Text('Photo Library', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    // Show loading
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(
+          child: Card(
+            color: Color(0xFF0D2137),
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Colors.lightBlueAccent),
+                  SizedBox(height: 16),
+                  Text('Reading lineup card…',
+                      style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    List<ParsedLineupRow>? rows;
+    try {
+      rows = await LineupOcrService.scan(source: source);
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('OCR failed: $e'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pop(); // dismiss loading
+
+    if (rows == null) return; // user cancelled picker
+
+    if (rows.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No lineup data found. Try a clearer photo with good lighting.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Show review sheet
+    final confirmed = await _showReviewSheet(rows);
+    if (confirmed != true || !mounted) return;
+
+    // Apply parsed rows to lineup (up to 9)
+    setState(() {
+      final names = isHome ? _homeNames : _awayNames;
+      final nums = isHome ? _homeNums : _awayNums;
+      final positions = isHome ? _homePositions : _awayPositions;
+
+      for (int i = 0; i < rows!.length && i < 9; i++) {
+        final row = rows[i];
+        if (row.name.isNotEmpty) names[i].text = row.name;
+        if (row.jerseyNumber != null) nums[i].text = '${row.jerseyNumber}';
+        if (row.position != null) positions[i] = row.position!;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Lineup populated from scan (${rows.length} players)'),
+        backgroundColor: Colors.green.shade700,
+      ),
+    );
+  }
+
+  Future<bool?> _showReviewSheet(List<ParsedLineupRow> rows) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0A1628),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _LineupReviewSheet(rows: rows),
+    );
+  }
+
   void _startGame() {
     final provider = context.read<GameProvider>();
     provider.startGame(
@@ -129,6 +267,7 @@ class _SetupScreenState extends State<SetupScreen>
             onPositionChanged: (i, pos) =>
                 setState(() => _awayPositions[i] = pos),
             onTeamNameChanged: () => setState(() {}),
+            onScanLineup: () => _scanLineup(isHome: false),
           ),
           _TeamSetupPage(
             teamNameCtrl: _homeNameCtrl,
@@ -138,6 +277,7 @@ class _SetupScreenState extends State<SetupScreen>
             onPositionChanged: (i, pos) =>
                 setState(() => _homePositions[i] = pos),
             onTeamNameChanged: () => setState(() {}),
+            onScanLineup: () => _scanLineup(isHome: true),
           ),
           _GameDetailsPage(
             info: _gameInfo,
@@ -156,6 +296,7 @@ class _TeamSetupPage extends StatelessWidget {
   final List<FieldPosition> positions;
   final void Function(int, FieldPosition) onPositionChanged;
   final VoidCallback onTeamNameChanged;
+  final VoidCallback onScanLineup;
 
   const _TeamSetupPage({
     required this.teamNameCtrl,
@@ -164,6 +305,7 @@ class _TeamSetupPage extends StatelessWidget {
     required this.positions,
     required this.onPositionChanged,
     required this.onTeamNameChanged,
+    required this.onScanLineup,
   });
 
   @override
@@ -181,6 +323,18 @@ class _TeamSetupPage extends StatelessWidget {
           decoration: _inputDeco('Team name'),
         ),
         const SizedBox(height: 24),
+        // Scan lineup card button
+        OutlinedButton.icon(
+          onPressed: onScanLineup,
+          icon: const Icon(Icons.document_scanner, size: 18),
+          label: const Text('Scan Lineup Card'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.lightBlueAccent,
+            side: const BorderSide(color: Colors.lightBlueAccent),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 20),
         _SectionLabel('Batting Order'),
         const SizedBox(height: 8),
         ...List.generate(9, (i) => _PlayerRow(
@@ -527,6 +681,165 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Lineup scan review sheet
+// ---------------------------------------------------------------------------
+
+class _LineupReviewSheet extends StatelessWidget {
+  final List<ParsedLineupRow> rows;
+  const _LineupReviewSheet({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final usable = rows.take(9).toList();
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (_, scrollCtrl) {
+        return Column(
+          children: [
+            // Handle
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline,
+                      color: Colors.greenAccent, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${usable.length} player${usable.length == 1 ? '' : 's'} detected',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Review the parsed lineup, then tap Apply.',
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Divider(color: Colors.white12, height: 1),
+            // List
+            Expanded(
+              child: ListView.builder(
+                controller: scrollCtrl,
+                itemCount: usable.length,
+                itemBuilder: (_, i) {
+                  final row = usable[i];
+                  return ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: const Color(0xFF1565C0),
+                      child: Text(
+                        '${row.battingOrder ?? i + 1}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    title: Text(
+                      row.name.isNotEmpty ? row.name : '—',
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                    subtitle: Row(
+                      children: [
+                        if (row.jerseyNumber != null)
+                          _chip('#${row.jerseyNumber}',
+                              Colors.white54),
+                        if (row.position != null)
+                          _chip(
+                            fieldPositionLabel(row.position!),
+                            Colors.lightBlueAccent,
+                          ),
+                        if (row.position == null)
+                          _chip('pos unknown', Colors.orange.shade300),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 1),
+            // Buttons
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        side: const BorderSide(color: Colors.white24),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context, true),
+                      icon: const Icon(Icons.check),
+                      label: const Text('Apply to Lineup'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _chip(String label, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6, top: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 InputDecoration _inputDeco(String hint) {
   return InputDecoration(

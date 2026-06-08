@@ -26,6 +26,19 @@ class _ScorebookScreenState extends State<ScorebookScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    // Sync tab to batting team on load
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncTab());
+  }
+
+  /// Switches the tab to whichever team is currently batting.
+  void _syncTab() {
+    final game = context.read<GameProvider>().game;
+    if (game == null) return;
+    // Away bats top (isTop=true) → tab 0; Home bats bottom → tab 1
+    final targetIndex = game.isTopOfInning ? 0 : 1;
+    if (_tabs.index != targetIndex) {
+      _tabs.animateTo(targetIndex);
+    }
   }
 
   @override
@@ -85,6 +98,9 @@ class _ScorebookScreenState extends State<ScorebookScreen>
     if (autoRbis > 0 && context.mounted) {
       provider.updatePARbis(pa.id, autoRbis, wasAwayBatting: wasAwayBatting);
     }
+
+    // If the inning flipped (3 outs recorded), auto-switch to batting team's tab
+    if (context.mounted) _syncTab();
   }
 
   Future<bool> _onWillPop() async {
@@ -143,6 +159,7 @@ class _ScorebookScreenState extends State<ScorebookScreen>
             onSelected: (v) {
               if (v == 'end_half') {
                 provider.endHalfInning();
+                _syncTab();
               } else if (v == 'end_game') {
                 _confirmEndGame(context, provider);
               }
@@ -208,6 +225,8 @@ class _ScorebookScreenState extends State<ScorebookScreen>
                     isBatting: isTop,
                     onEditPA: (pa, name, inning, isHome) =>
                         _editPA(context, pa: pa, playerName: name, inning: inning, isHomeTeam: isHome),
+                    onAddPA: (name, slot, inning, isHome) =>
+                        _addPA(context, playerName: name, slotIndex: slot, inning: inning, isHomeTeam: isHome, isTopOfInning: true),
                     onEditPlayer: (player, idx, isHome, order) =>
                         _editPlayer(context, player: player, lineupIndex: idx, isHomeTeam: isHome, battingOrder: order)),
                 _ScorebookGrid(
@@ -216,6 +235,8 @@ class _ScorebookScreenState extends State<ScorebookScreen>
                     isBatting: !isTop,
                     onEditPA: (pa, name, inning, isHome) =>
                         _editPA(context, pa: pa, playerName: name, inning: inning, isHomeTeam: isHome),
+                    onAddPA: (name, slot, inning, isHome) =>
+                        _addPA(context, playerName: name, slotIndex: slot, inning: inning, isHomeTeam: isHome, isTopOfInning: false),
                     onEditPlayer: (player, idx, isHome, order) =>
                         _editPlayer(context, player: player, lineupIndex: idx, isHomeTeam: isHome, battingOrder: order)),
               ],
@@ -283,6 +304,99 @@ class _ScorebookScreenState extends State<ScorebookScreen>
     }
   }
 
+  /// Re-record a PA for a cell that was deleted (slot/inning already known).
+  Future<void> _addPA(
+    BuildContext context, {
+    required String playerName,
+    required int slotIndex,
+    required int inning,
+    required bool isHomeTeam,
+    required bool isTopOfInning,
+  }) async {
+    final provider = context.read<GameProvider>();
+    final game = provider.game!;
+
+    final pa = await showAtBatEntry(
+      context,
+      inning: inning,
+      topOfInning: isTopOfInning,
+      batterName: playerName,
+      battingOrder: slotIndex + 1,
+    );
+    if (pa == null || !context.mounted) return;
+
+    final wasAwayBatting = game.isTopOfInning;
+    final runnersBeforePA = provider.addPlateAppearanceToSlot(
+      pa,
+      isHomeTeam: isHomeTeam,
+      slotIndex: slotIndex,
+    );
+
+    // Handle runner advancement (same as normal PA flow)
+    int autoRbis = pa.scored ? 1 : 0;
+    if (runnersBeforePA.isNotEmpty && context.mounted) {
+      final advancement = await showRunnerAdvancement(
+        context,
+        runners: runnersBeforePA,
+        battingTeam: game.battingTeam,
+        batterResult: pa.displayText,
+        batterPlayResult: pa.result,
+      );
+      if (advancement != null && context.mounted) {
+        for (final entry in advancement.entries) {
+          provider.advanceRunner(entry.key, entry.value);
+          if (entry.value >= 4) autoRbis++;
+        }
+      }
+    }
+
+    if (autoRbis > 0 && context.mounted) {
+      provider.updatePARbis(pa.id, autoRbis, wasAwayBatting: wasAwayBatting);
+    }
+
+    // If batter reached safely but we're still at 2 outs (e.g. FC, error, K+),
+    // the 3rd out must have come from a runner — ask and end the inning if so.
+    final stillTwoOuts = provider.game?.outs == 2 &&
+        provider.game?.isTopOfInning == game.isTopOfInning;
+    final couldHaveRunnerOut = pa.reachedFirst && const {
+      PlayResult.fieldersChoice,
+      PlayResult.error,
+      PlayResult.droppedThirdStrike,
+    }.contains(pa.result);
+
+    if (stillTwoOuts && couldHaveRunnerOut && context.mounted) {
+      final endInning = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF0D2137),
+          title: const Text('3rd Out?', style: TextStyle(color: Colors.white)),
+          content: const Text(
+            'Was a runner put out on this play to end the inning?',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('No'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Yes — End Inning',
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+      if ((endInning ?? false) && context.mounted) {
+        provider.endHalfInning();
+      }
+    }
+
+    // Auto-flip tab if inning changed
+    if (context.mounted) _syncTab();
+  }
+
   Future<void> _editPA(
     BuildContext context, {
     required PlateAppearance pa,
@@ -298,7 +412,11 @@ class _ScorebookScreenState extends State<ScorebookScreen>
       inning: inning,
     );
     if (result != null && context.mounted) {
-      provider.editPlateAppearance(result, isHomeTeam: isHomeTeam);
+      if (result.deleted) {
+        provider.deletePlateAppearance(result.paId, isHomeTeam: isHomeTeam);
+      } else {
+        provider.editPlateAppearance(result, isHomeTeam: isHomeTeam);
+      }
     }
   }
 
@@ -647,6 +765,7 @@ class _ScorebookGrid extends StatelessWidget {
   final Game game;
   final bool isBatting;
   final void Function(PlateAppearance pa, String playerName, int inning, bool isHomeTeam) onEditPA;
+  final void Function(String playerName, int slotIndex, int inning, bool isHomeTeam) onAddPA;
   final void Function(Player player, int lineupIndex, bool isHomeTeam, int battingOrder) onEditPlayer;
 
   const _ScorebookGrid({
@@ -654,6 +773,7 @@ class _ScorebookGrid extends StatelessWidget {
     required this.game,
     required this.isBatting,
     required this.onEditPA,
+    required this.onAddPA,
     required this.onEditPlayer,
   });
 
@@ -793,7 +913,14 @@ class _ScorebookGrid extends StatelessWidget {
                                   inn + 1,
                                   team == game.homeTeam,
                                 )
-                            : null,
+                            : !isCurrent
+                                ? () => onAddPA(
+                                      slot.currentPlayer.name,
+                                      idx,
+                                      inn + 1,
+                                      team == game.homeTeam,
+                                    )
+                                : null,
                       );
                     }),
                     // Stats: R H RBI

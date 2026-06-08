@@ -177,7 +177,17 @@ class GameProvider extends ChangeNotifier {
 
     // Update or remove from runners list
     if (newBase >= 4 || newBase == 0) {
+      // Only count an out if this runner was still active (i.e. the inning
+      // wasn't already ended by the PA itself, which clears _runners first).
+      final wasStillOnBase = _runners.any((r) => r.paId == paId);
       _runners.removeWhere((r) => r.paId == paId);
+      if (newBase == 0 && wasStillOnBase) {
+        _game!.outs++;
+        if (_game!.outs >= 3) {
+          _runners.clear();
+          _endHalfInning();
+        }
+      }
     } else {
       final runner = _runners.firstWhere((r) => r.paId == paId,
           orElse: () => BaseRunner(lineupSlotIndex: -1, paId: paId, startBase: 1));
@@ -286,6 +296,67 @@ class GameProvider extends ChangeNotifier {
       if (idx != -1) {
         slot.plateAppearances[idx] =
             slot.plateAppearances[idx].copyWith(rbis: rbis);
+        break;
+      }
+    }
+    _autoSave();
+    notifyListeners();
+  }
+
+  /// Re-record a PA for a specific lineup slot (after a delete).
+  /// Counts outs and ends the half-inning if 3 outs are reached.
+  /// Returns runners that were on base before this PA (for advancement dialog).
+  List<BaseRunner> addPlateAppearanceToSlot(
+    PlateAppearance pa, {
+    required bool isHomeTeam,
+    required int slotIndex,
+  }) {
+    if (_game == null) return [];
+    final team = isHomeTeam ? _game!.homeTeam! : _game!.awayTeam!;
+    if (slotIndex < 0 || slotIndex >= team.lineup.length) return [];
+
+    final runnersBeforePA = List<BaseRunner>.from(_runners);
+
+    team.lineup[slotIndex].plateAppearances.add(pa);
+
+    // Count outs from this PA
+    _game!.outs += pa.outsRecorded;
+
+    // Add batter as runner if they reached base
+    if (pa.reachedFirst && !pa.scored) {
+      final startBase = pa.reachedThird ? 3 : pa.reachedSecond ? 2 : 1;
+      _runners.add(BaseRunner(
+        lineupSlotIndex: slotIndex,
+        paId: pa.id,
+        startBase: startBase,
+      ));
+    }
+
+    if (_game!.outs >= 3) {
+      _runners.clear();
+      _endHalfInning();
+    }
+
+    _autoSave();
+    notifyListeners();
+    return runnersBeforePA;
+  }
+
+  /// Delete a plate appearance entirely.
+  void deletePlateAppearance(String paId, {required bool isHomeTeam}) {
+    if (_game == null) return;
+    final team = isHomeTeam ? _game!.homeTeam! : _game!.awayTeam!;
+    for (final slot in team.lineup) {
+      final idx = slot.plateAppearances.indexWhere((pa) => pa.id == paId);
+      if (idx != -1) {
+        final pa = slot.plateAppearances[idx];
+        // Walk back outs this PA contributed
+        if (pa.outsRecorded > 0) {
+          _game!.outs = (_game!.outs - pa.outsRecorded).clamp(0, 2);
+        }
+        slot.plateAppearances.removeAt(idx);
+        // Remove from active runners if still on base
+        _runners.removeWhere((r) => r.paId == paId);
         break;
       }
     }
