@@ -86,13 +86,13 @@ class HitDirectionSelector extends StatelessWidget {
 /// Angle in radians from vertical (north = 0), positive = right
 double _dirAngle(HitDirection dir) {
   switch (dir) {
-    case HitDirection.line3B:     return -0.95;
+    case HitDirection.line3B:     return -0.70;
     case HitDirection.leftField:  return -0.60;
     case HitDirection.leftCenter: return -0.28;
     case HitDirection.center:     return 0.0;
     case HitDirection.rightCenter:return 0.28;
     case HitDirection.rightField: return 0.60;
-    case HitDirection.line1B:     return 0.95;
+    case HitDirection.line1B:     return 0.70;
   }
 }
 

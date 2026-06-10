@@ -61,6 +61,8 @@ class _ScorebookScreenState extends State<ScorebookScreen>
       topOfInning: game.isTopOfInning,
       batterName: batter.name,
       battingOrder: order,
+      initialBalls: provider.balls,
+      initialStrikes: provider.strikes,
     );
 
     if (pa == null || !context.mounted) return;
@@ -74,8 +76,12 @@ class _ScorebookScreenState extends State<ScorebookScreen>
     // Calculate auto RBIs: runners who score + batter if HR
     int autoRbis = pa.scored ? 1 : 0; // batter scores = HR = 1 RBI
 
-    // If there were runners on base, ask how they advanced
-    if (runnersBeforePA.isNotEmpty && context.mounted) {
+    // Only ask about runner advancement if the inning is still going
+    final inningEnded = provider.game == null ||
+        provider.game!.isTopOfInning != game.isTopOfInning ||
+        provider.game!.currentInning != game.currentInning;
+
+    if (runnersBeforePA.isNotEmpty && !inningEnded && context.mounted) {
       final advancement = await showRunnerAdvancement(
         context,
         runners: runnersBeforePA,
@@ -334,7 +340,11 @@ class _ScorebookScreenState extends State<ScorebookScreen>
 
     // Handle runner advancement (same as normal PA flow)
     int autoRbis = pa.scored ? 1 : 0;
-    if (runnersBeforePA.isNotEmpty && context.mounted) {
+    final inningEnded = provider.game == null ||
+        provider.game!.isTopOfInning != game.isTopOfInning ||
+        provider.game!.currentInning != game.currentInning;
+
+    if (runnersBeforePA.isNotEmpty && !inningEnded && context.mounted) {
       final advancement = await showRunnerAdvancement(
         context,
         runners: runnersBeforePA,
@@ -612,6 +622,9 @@ class _GameStatusBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          // Base runners diamond
+          _BaseDiamond(runners: provider.runners),
+          const SizedBox(width: 10),
           // Outs
           Row(
             children: [
@@ -778,201 +791,212 @@ class _ScorebookGrid extends StatelessWidget {
   });
 
   static const double _cellSize = 64;
-  static const double _nameColWidth = 130;
+  static const double _nameColWidth = 105;
   static const double _statColWidth = 36;
+  static const double _totalsHeight = 32;
 
   @override
   Widget build(BuildContext context) {
     final innings = game.totalInnings;
     final runsByInning = team.runsByInning;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 0), // top spacer
-            // --- Header row ---
-            Row(
-              children: [
-                _HeaderCell('#', width: 28),
-                _HeaderCell('Player', width: _nameColWidth, align: TextAlign.left),
-                _HeaderCell('Pos', width: 36),
-                ...List.generate(innings, (i) => _HeaderCell('${i + 1}', width: _cellSize)),
-                _HeaderCell('R', width: _statColWidth),
-                _HeaderCell('H', width: _statColWidth),
-                _HeaderCell('RBI', width: _statColWidth),
-              ],
+    // Build frozen left column rows and scrollable right column rows in sync.
+    final leftHeaderRow = Row(children: [
+      _HeaderCell('#', width: 28),
+      _HeaderCell('Player', width: _nameColWidth, align: TextAlign.left),
+      _HeaderCell('Pos', width: 36),
+    ]);
+
+    final rightHeaderRow = Row(children: [
+      ...List.generate(innings, (i) => _HeaderCell('${i + 1}', width: _cellSize)),
+      _HeaderCell('R', width: _statColWidth),
+      _HeaderCell('H', width: _statColWidth),
+      _HeaderCell('RBI', width: _statColWidth),
+    ]);
+
+    final leftRows = <Widget>[];
+    final rightRows = <Widget>[];
+
+    for (int idx = 0; idx < team.lineup.length; idx++) {
+      final slot = team.lineup[idx];
+      final player = slot.currentPlayer;
+      final isCurrentBatter = isBatting && team.currentBatterIndex == idx;
+      final rowColor = isCurrentBatter
+          ? Colors.amber.withValues(alpha: 0.07)
+          : idx.isEven
+              ? Colors.white.withValues(alpha: 0.02)
+              : Colors.transparent;
+
+      // Left: order + name + position
+      leftRows.add(Container(
+        color: rowColor,
+        child: Row(children: [
+          SizedBox(
+            width: 28,
+            height: _cellSize,
+            child: Center(
+              child: Text('${idx + 1}',
+                  style: TextStyle(
+                      color: isCurrentBatter ? Colors.amber.shade300 : Colors.white38,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold)),
             ),
-            const Divider(color: Colors.white12, height: 1),
-
-            // --- Player rows ---
-            ...List.generate(team.lineup.length, (idx) {
-              final slot = team.lineup[idx];
-              final player = slot.currentPlayer;
-              final isCurrentBatter =
-                  isBatting && team.currentBatterIndex == idx;
-
-              return Container(
-                color: isCurrentBatter
-                    ? Colors.amber.withValues(alpha: 0.07)
-                    : idx.isEven
-                        ? Colors.white.withValues(alpha: 0.02)
-                        : Colors.transparent,
-                child: Row(
+          ),
+          GestureDetector(
+            onTap: () => onEditPlayer(player, idx, team == game.homeTeam, idx + 1),
+            child: SizedBox(
+              width: _nameColWidth,
+              height: _cellSize,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Order number
-                    SizedBox(
-                      width: 28,
-                      height: _cellSize,
-                      child: Center(
-                        child: Text('${idx + 1}',
-                            style: TextStyle(
-                                color: isCurrentBatter
-                                    ? Colors.amber.shade300
-                                    : Colors.white38,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold)),
+                    Text(
+                      player.name,
+                      style: TextStyle(
+                        color: isCurrentBatter ? Colors.amber.shade200 : Colors.white,
+                        fontSize: 13,
+                        fontWeight: isCurrentBatter ? FontWeight.bold : FontWeight.normal,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    // Name — tap to edit
-                    GestureDetector(
-                      onTap: () => onEditPlayer(
-                        player,
-                        idx,
-                        team == game.homeTeam,
-                        idx + 1,
-                      ),
-                      child: SizedBox(
-                        width: _nameColWidth,
-                        height: _cellSize,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                player.name,
-                                style: TextStyle(
-                                  color: isCurrentBatter
-                                      ? Colors.amber.shade200
-                                      : Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: isCurrentBatter
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (player.jerseyNumber > 0)
-                                Text('#${player.jerseyNumber}',
-                                    style: const TextStyle(
-                                        color: Colors.white38,
-                                        fontSize: 10)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Position
-                    SizedBox(
-                      width: 36,
-                      height: _cellSize,
-                      child: Center(
-                        child: Text(
-                          fieldPositionLabel(player.position),
-                          style: const TextStyle(
-                              color: Colors.lightBlueAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    // PA cells per inning
-                    ...List.generate(innings, (inn) {
-                      final inningPAs = slot.plateAppearances
-                          .where((pa) => pa.inning == inn + 1)
-                          .toList();
-                      final pa = inningPAs.isNotEmpty ? inningPAs.first : null;
-
-                      final isCurrent = isCurrentBatter &&
-                          pa == null &&
-                          inn + 1 == game.currentInning;
-
-                      return DiamondCell(
-                        size: _cellSize,
-                        pa: pa,
-                        isCurrent: isCurrent,
-                        onTap: pa != null
-                            ? () => onEditPA(
-                                  pa,
-                                  slot.currentPlayer.name,
-                                  inn + 1,
-                                  team == game.homeTeam,
-                                )
-                            : !isCurrent
-                                ? () => onAddPA(
-                                      slot.currentPlayer.name,
-                                      idx,
-                                      inn + 1,
-                                      team == game.homeTeam,
-                                    )
-                                : null,
-                      );
-                    }),
-                    // Stats: R H RBI
-                    _StatCell(slot.runs, _statColWidth, Colors.greenAccent),
-                    _StatCell(slot.hits, _statColWidth, Colors.white),
-                    _StatCell(slot.rbis, _statColWidth, Colors.yellowAccent),
+                    if (player.jerseyNumber > 0)
+                      Text('#${player.jerseyNumber}',
+                          style: const TextStyle(color: Colors.white38, fontSize: 10)),
                   ],
                 ),
-              );
-            }),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 36,
+            height: _cellSize,
+            child: Center(
+              child: Text(
+                fieldPositionLabel(player.position),
+                style: const TextStyle(
+                    color: Colors.lightBlueAccent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ]),
+      ));
 
-            // --- Inning totals row ---
-            const Divider(color: Colors.white24, height: 1),
-            Container(
-              color: const Color(0xFF0D2137),
-              child: Row(
+      // Right: inning cells + stats
+      rightRows.add(Container(
+        color: rowColor,
+        child: Row(children: [
+          ...List.generate(innings, (inn) {
+            final pa = slot.plateAppearances
+                .where((pa) => pa.inning == inn + 1)
+                .firstOrNull;
+            final isCurrent = isCurrentBatter &&
+                pa == null &&
+                inn + 1 == game.currentInning;
+            return DiamondCell(
+              size: _cellSize,
+              pa: pa,
+              isCurrent: isCurrent,
+              onTap: pa != null
+                  ? () => onEditPA(pa, slot.currentPlayer.name, inn + 1, team == game.homeTeam)
+                  : !isCurrent
+                      ? () => onAddPA(slot.currentPlayer.name, idx, inn + 1, team == game.homeTeam)
+                      : null,
+            );
+          }),
+          _StatCell(slot.runs, _statColWidth, Colors.greenAccent),
+          _StatCell(slot.hits, _statColWidth, Colors.white),
+          _StatCell(slot.rbis, _statColWidth, Colors.yellowAccent),
+        ]),
+      ));
+    }
+
+    // Totals row
+    final leftTotals = Container(
+      color: const Color(0xFF0D2137),
+      child: SizedBox(
+        width: 28 + _nameColWidth + 36,
+        height: 32,
+        child: const Padding(
+          padding: EdgeInsets.only(left: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Runs', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ),
+    );
+
+    final rightTotals = Container(
+      color: const Color(0xFF0D2137),
+      child: Row(children: [
+        ...List.generate(innings, (i) {
+          final r = runsByInning[i + 1] ?? 0;
+          return SizedBox(
+            width: _cellSize,
+            height: 32,
+            child: Center(
+              child: Text(
+                r > 0 ? '$r' : '-',
+                style: TextStyle(
+                  color: r > 0 ? Colors.greenAccent : Colors.white24,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          );
+        }),
+        _StatCell(team.totalRuns, _statColWidth, Colors.greenAccent, height: _totalsHeight),
+        _StatCell(team.totalHits, _statColWidth, Colors.white, height: _totalsHeight),
+        _StatCell(team.totalRbis, _statColWidth, Colors.yellowAccent, height: _totalsHeight),
+      ]),
+    );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Frozen left column ──────────────────────────────────────
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(right: BorderSide(color: Colors.white24, width: 1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                leftHeaderRow,
+                const Divider(color: Colors.white12, height: 1),
+                ...leftRows,
+                const Divider(color: Colors.white24, height: 1),
+                leftTotals,
+                const SizedBox(height: 200),
+              ],
+            ),
+          ),
+          // ── Scrollable right section ─────────────────────────────────
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: 28 + _nameColWidth + 36, height: 32,
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('Runs', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                    )),
-                  ...List.generate(innings, (i) {
-                    final r = runsByInning[i + 1] ?? 0;
-                    return SizedBox(
-                      width: _cellSize,
-                      height: 32,
-                      child: Center(
-                        child: Text(
-                          r > 0 ? '$r' : '-',
-                          style: TextStyle(
-                            color: r > 0 ? Colors.greenAccent : Colors.white24,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                  _StatCell(team.totalRuns, _statColWidth, Colors.greenAccent),
-                  _StatCell(team.totalHits, _statColWidth, Colors.white),
-                  _StatCell(team.totalRbis, _statColWidth, Colors.yellowAccent),
+                  rightHeaderRow,
+                  const Divider(color: Colors.white12, height: 1),
+                  ...rightRows,
+                  const Divider(color: Colors.white24, height: 1),
+                  rightTotals,
+                  const SizedBox(height: 200),
                 ],
               ),
             ),
-            // Bottom padding so last rows clear the FAB buttons
-            const SizedBox(height: 200),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1016,14 +1040,15 @@ class _StatCell extends StatelessWidget {
   final int value;
   final double width;
   final Color color;
+  final double height;
 
-  const _StatCell(this.value, this.width, this.color);
+  const _StatCell(this.value, this.width, this.color, {this.height = 64});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
-      height: 64,
+      height: height,
       child: Center(
         child: Text(
           '$value',
@@ -1036,3 +1061,89 @@ class _StatCell extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Live base runner diamond
+// ---------------------------------------------------------------------------
+
+class _BaseDiamond extends StatelessWidget {
+  final List<BaseRunner> runners;
+  const _BaseDiamond({required this.runners});
+
+  @override
+  Widget build(BuildContext context) {
+    final occupied = runners.map((r) => r.currentBase).toSet();
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: CustomPaint(painter: _BaseDiamondPainter(occupied: occupied)),
+    );
+  }
+}
+
+class _BaseDiamondPainter extends CustomPainter {
+  final Set<int> occupied;
+  const _BaseDiamondPainter({required this.occupied});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width * 0.38;
+
+    final home   = Offset(cx,      cy + r);
+    final first  = Offset(cx + r,  cy);
+    final second = Offset(cx,      cy - r);
+    final third  = Offset(cx - r,  cy);
+
+    // Outline
+    final outlinePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawLine(home, first, outlinePaint);
+    canvas.drawLine(first, second, outlinePaint);
+    canvas.drawLine(second, third, outlinePaint);
+    canvas.drawLine(third, home, outlinePaint);
+
+    // Draw each base square — yellow if occupied, dim if empty
+    _drawBase(canvas, first,  occupied.contains(1));
+    _drawBase(canvas, second, occupied.contains(2));
+    _drawBase(canvas, third,  occupied.contains(3));
+
+    // Home plate (always dim — batter not a runner yet)
+    _drawBase(canvas, home, false, isHome: true);
+  }
+
+  void _drawBase(Canvas canvas, Offset pos, bool on, {bool isHome = false}) {
+    const s = 4.5;
+    final path = Path()
+      ..moveTo(pos.dx,     pos.dy - s)
+      ..lineTo(pos.dx + s, pos.dy)
+      ..lineTo(pos.dx,     pos.dy + s)
+      ..lineTo(pos.dx - s, pos.dy)
+      ..close();
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = on
+            ? Colors.yellow.shade400
+            : Colors.white.withValues(alpha: isHome ? 0.15 : 0.12)
+        ..style = PaintingStyle.fill,
+    );
+    if (on) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.yellow.shade200
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BaseDiamondPainter old) => old.occupied != occupied;
+}
+

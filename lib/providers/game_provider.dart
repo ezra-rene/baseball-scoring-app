@@ -109,13 +109,7 @@ class GameProvider extends ChangeNotifier {
     final slotIndex = batting.currentBatterIndex;
     final slot = batting.currentBatter;
 
-    // Stamp current ball/strike count onto the PA before resetting
-    final stampedPA = pa.copyWith(
-      pitchBalls: _balls,
-      pitchStrikes: _strikes,
-    );
-
-    // Reset count for next batter
+    // Reset count for next batter (PA already has counts from the entry sheet)
     _balls = 0;
     _strikes = 0;
     _fouls = 0;
@@ -123,8 +117,7 @@ class GameProvider extends ChangeNotifier {
     // Snapshot runners before this PA for the advancement dialog
     final runnersBeforePA = List<BaseRunner>.from(_runners);
 
-    // Add PA to batter's slot (use stamped version)
-    slot.plateAppearances.add(stampedPA);
+    slot.plateAppearances.add(pa);
 
     // Advance batter in lineup
     batting.advanceBatter();
@@ -317,7 +310,12 @@ class GameProvider extends ChangeNotifier {
 
     final runnersBeforePA = List<BaseRunner>.from(_runners);
 
+    // PA already has pitch counts from the entry sheet
+    _balls = 0;
+    _strikes = 0;
+    _fouls = 0;
     team.lineup[slotIndex].plateAppearances.add(pa);
+    team.currentBatterIndex = (slotIndex + 1) % team.lineup.length;
 
     // Count outs from this PA
     _game!.outs += pa.outsRecorded;
@@ -346,7 +344,8 @@ class GameProvider extends ChangeNotifier {
   void deletePlateAppearance(String paId, {required bool isHomeTeam}) {
     if (_game == null) return;
     final team = isHomeTeam ? _game!.homeTeam! : _game!.awayTeam!;
-    for (final slot in team.lineup) {
+    for (int slotIdx = 0; slotIdx < team.lineup.length; slotIdx++) {
+      final slot = team.lineup[slotIdx];
       final idx = slot.plateAppearances.indexWhere((pa) => pa.id == paId);
       if (idx != -1) {
         final pa = slot.plateAppearances[idx];
@@ -357,6 +356,12 @@ class GameProvider extends ChangeNotifier {
         slot.plateAppearances.removeAt(idx);
         // Remove from active runners if still on base
         _runners.removeWhere((r) => r.paId == paId);
+        // Restore batter index so this slot is "up" again
+        team.currentBatterIndex = slotIdx;
+        // Reset pitch count for the re-recording
+        _balls = 0;
+        _strikes = 0;
+        _fouls = 0;
         break;
       }
     }

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
@@ -55,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1628),
+      backgroundColor: const Color(0xFF0A1120),
       body: SafeArea(
         child: Column(
           children: [
@@ -65,25 +66,33 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 children: [
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 90,
+                    height: 90,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF1B5E20),
+                      color: const Color(0xFF12203A),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withValues(alpha: 0.4),
-                          blurRadius: 20,
+                          color: const Color(0xFF8B4513).withValues(alpha: 0.45),
+                          blurRadius: 24,
                           spreadRadius: 4,
+                        ),
+                        BoxShadow(
+                          color: Colors.green.withValues(alpha: 0.25),
+                          blurRadius: 16,
+                          spreadRadius: 2,
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.sports_baseball,
-                        size: 44, color: Colors.white),
+                    child: const SizedBox(
+                      width: 90,
+                      height: 90,
+                      child: CustomPaint(painter: _DiamondLogoPainter()),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Baseball Scorer',
+                    'Diamond Dugout',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -94,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const Text(
                     'Official Scorebook',
                     style: TextStyle(
-                      color: Color(0xFF90CAF9),
+                      color: Color(0xFFBC8A5F),
                       fontSize: 14,
                       letterSpacing: 2,
                     ),
@@ -124,8 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(
                           fontSize: 17, fontWeight: FontWeight.w600)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
+                    backgroundColor: const Color(0xFF1B5E20),
                     foregroundColor: Colors.white,
+                    shadowColor: const Color(0xFF8B4513).withValues(alpha: 0.4),
+                    elevation: 6,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
@@ -159,7 +170,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Text(
                       'SAVED GAMES',
                       style: TextStyle(
-                        color: Color(0xFF90CAF9),
+                        color: Color(0xFFBC8A5F),
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
@@ -177,8 +188,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _loadSummaries,
-                  color: Colors.white,
-                  backgroundColor: const Color(0xFF0D2137),
+                  color: const Color(0xFFBC8A5F),
+                  backgroundColor: const Color(0xFF0F1E32),
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     itemCount: _savedGames.length,
@@ -256,10 +267,12 @@ class _GameCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D2137),
+        color: const Color(0xFF0F1E32),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isComplete ? Colors.white12 : Colors.green.withValues(alpha: 0.3),
+          color: isComplete
+              ? Colors.white12
+              : const Color(0xFF8B4513).withValues(alpha: 0.5),
           width: isComplete ? 1 : 1.5,
         ),
       ),
@@ -280,7 +293,7 @@ class _GameCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isComplete
                           ? Colors.white12
-                          : Colors.green.withValues(alpha: 0.2),
+                          : const Color(0xFF8B4513).withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -288,7 +301,7 @@ class _GameCard extends StatelessWidget {
                       style: TextStyle(
                         color: isComplete
                             ? Colors.white54
-                            : Colors.greenAccent,
+                            : const Color(0xFFE8A87C),
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -341,7 +354,7 @@ class _GameCard extends StatelessWidget {
                     '${summary.awayScore}',
                     style: TextStyle(
                       color: summary.awayScore > summary.homeScore
-                          ? Colors.greenAccent
+                          ? const Color(0xFFE8A87C)
                           : Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -357,7 +370,7 @@ class _GameCard extends StatelessWidget {
                     '${summary.homeScore}',
                     style: TextStyle(
                       color: summary.homeScore > summary.awayScore
-                          ? Colors.greenAccent
+                          ? const Color(0xFFE8A87C)
                           : Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -387,7 +400,7 @@ class _GameCard extends StatelessWidget {
                     style: TextStyle(
                       color: isComplete
                           ? Colors.white38
-                          : Colors.greenAccent,
+                          : const Color(0xFFE8A87C),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -414,6 +427,115 @@ class _GameCard extends StatelessWidget {
     final ampm = hour >= 12 ? 'PM' : 'AM';
     return '$h:$m $ampm';
   }
+}
+
+class _DiamondLogoPainter extends CustomPainter {
+  const _DiamondLogoPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width * 0.36; // half-diagonal of infield diamond
+
+    // Base positions (diamond: home bottom, 1B right, 2B top, 3B left)
+    final home  = Offset(cx,      cy + r);
+    final first = Offset(cx + r,  cy);
+    final second= Offset(cx,      cy - r);
+    final third = Offset(cx - r,  cy);
+
+    // ── Outfield grass arc (green fan) ──────────────────────────────────
+    final grassPaint = Paint()
+      ..color = const Color(0xFF1B5E20).withValues(alpha: 0.85)
+      ..style = PaintingStyle.fill;
+    final grassPath = Path()
+      ..moveTo(home.dx, home.dy)
+      ..lineTo(cx - size.width * 0.48, cy - size.height * 0.05)
+      ..arcTo(
+        Rect.fromCircle(center: Offset(cx, cy + r * 0.15), radius: size.width * 0.50),
+        pi + 0.38, pi - 0.76, false,
+      )
+      ..lineTo(home.dx, home.dy)
+      ..close();
+    canvas.drawPath(grassPath, grassPaint);
+
+    // ── Infield dirt (brown diamond) ─────────────────────────────────────
+    final dirtPaint = Paint()
+      ..color = const Color(0xFF6B3A1F).withValues(alpha: 0.9)
+      ..style = PaintingStyle.fill;
+    final dirtPath = Path()
+      ..moveTo(home.dx, home.dy)
+      ..lineTo(first.dx, first.dy)
+      ..lineTo(second.dx, second.dy)
+      ..lineTo(third.dx, third.dy)
+      ..close();
+    canvas.drawPath(dirtPath, dirtPaint);
+
+    // Infield grass (inner green square, slightly smaller)
+    final igr = r * 0.54;
+    final infieldGrassPaint = Paint()
+      ..color = const Color(0xFF2E7D32).withValues(alpha: 0.75)
+      ..style = PaintingStyle.fill;
+    final igPath = Path()
+      ..moveTo(cx,        cy + igr)
+      ..lineTo(cx + igr,  cy)
+      ..lineTo(cx,        cy - igr)
+      ..lineTo(cx - igr,  cy)
+      ..close();
+    canvas.drawPath(igPath, infieldGrassPaint);
+
+    // ── Basepaths (white lines) ────────────────────────────────────────
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawLine(home, first, linePaint);
+    canvas.drawLine(home, third, linePaint);
+    canvas.drawLine(first, second, linePaint);
+    canvas.drawLine(third, second, linePaint);
+
+    // ── Bases (white squares, rotated 45°) ────────────────────────────
+    final basePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.92)
+      ..style = PaintingStyle.fill;
+    const bs = 5.0; // base size half-width
+    for (final pos in [first, second, third]) {
+      final bp = Path()
+        ..moveTo(pos.dx,      pos.dy - bs)
+        ..lineTo(pos.dx + bs, pos.dy)
+        ..lineTo(pos.dx,      pos.dy + bs)
+        ..lineTo(pos.dx - bs, pos.dy)
+        ..close();
+      canvas.drawPath(bp, basePaint);
+    }
+    // Home plate (pentagon shape)
+    final hp = Path()
+      ..moveTo(home.dx,        home.dy - bs)
+      ..lineTo(home.dx + bs,   home.dy - bs * 0.3)
+      ..lineTo(home.dx + bs * 0.6, home.dy + bs)
+      ..lineTo(home.dx - bs * 0.6, home.dy + bs)
+      ..lineTo(home.dx - bs,   home.dy - bs * 0.3)
+      ..close();
+    canvas.drawPath(hp, basePaint);
+
+    // ── Pitcher's mound (small brown circle) ─────────────────────────
+    canvas.drawCircle(
+      Offset(cx, cy),
+      4.5,
+      Paint()..color = const Color(0xFF8B4513).withValues(alpha: 0.85),
+    );
+    canvas.drawCircle(
+      Offset(cx, cy),
+      4.5,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DiamondLogoPainter old) => false;
 }
 
 class _InfoChip extends StatelessWidget {

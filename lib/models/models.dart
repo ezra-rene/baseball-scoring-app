@@ -103,6 +103,7 @@ enum PlayResult {
   doublePlay,
   triplePlay,
   droppedThirdStrike,
+  catchersInterference,
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +224,7 @@ class PlateAppearance {
         PlayResult.error,
         PlayResult.fieldersChoice,
         PlayResult.droppedThirdStrike,
+        PlayResult.catchersInterference,
       }.contains(r);
 
   static bool defaultReachedSecond(PlayResult r) =>
@@ -299,6 +301,8 @@ class PlateAppearance {
         return fielderNotation.isEmpty ? 'TP' : fielderNotation;
       case PlayResult.droppedThirdStrike:
         return 'K+';
+      case PlayResult.catchersInterference:
+        return 'CI';
     }
   }
 

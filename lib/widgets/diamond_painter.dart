@@ -134,8 +134,12 @@ class _DiamondPainter extends CustomPainter {
     final textOffset = showFielderLine
         ? Offset(cx, cy - size.height * 0.08)
         : Offset(cx, cy);
-    _drawText(canvas, pa!.displayText, textOffset, fontSize, textColor,
-        bold: true);
+    if (pa!.result == PlayResult.strikeoutLooking) {
+      _drawBackwardsK(canvas, textOffset, fontSize, textColor);
+    } else {
+      _drawText(canvas, pa!.displayText, textOffset, fontSize, textColor,
+          bold: true);
+    }
     // Fielder notation below main text (e.g. "6-3", "E6", "6-4-3")
     if (showFielderLine) {
       _drawText(
@@ -149,7 +153,8 @@ class _DiamondPainter extends CustomPainter {
 
     // --- Hit direction arrow ---
     if (pa!.hitDirection != null) {
-      _drawHitDirection(canvas, size, pa!.hitDirection!, home);
+      final isBunt = pa!.result == PlayResult.sacrificeBunt;
+      _drawHitDirection(canvas, size, pa!.hitDirection!, home, short: isBunt);
     }
 
     // --- Ball-Strike count — upper right corner ---
@@ -199,6 +204,27 @@ class _DiamondPainter extends CustomPainter {
     }
   }
 
+  void _drawBackwardsK(Canvas canvas, Offset center, double fontSize, Color color) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: 'K',
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+          height: 1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.save();
+    // Flip horizontally around the center point
+    canvas.translate(center.dx * 2, 0);
+    canvas.scale(-1.0, 1.0);
+    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
+    canvas.restore();
+  }
+
   void _drawText(
     Canvas canvas,
     String text,
@@ -223,20 +249,19 @@ class _DiamondPainter extends CustomPainter {
         canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
   }
 
-  void _drawHitDirection(Canvas canvas, Size size, HitDirection dir, Offset home) {
+  void _drawHitDirection(Canvas canvas, Size size, HitDirection dir, Offset home, {bool short = false}) {
     // Angle from vertical: negative = left, positive = right
     const angles = {
-      HitDirection.line3B:      -0.95,
+      HitDirection.line3B:      -0.70,
       HitDirection.leftField:   -0.60,
       HitDirection.leftCenter:  -0.28,
       HitDirection.center:       0.0,
       HitDirection.rightCenter:  0.28,
       HitDirection.rightField:   0.60,
-      HitDirection.line1B:       0.95,
+      HitDirection.line1B:       0.70,
     };
     final angle = angles[dir]!;
-    // Arrow goes from home toward the upper portion of the cell
-    final length = size.height * 0.52; // extends past the diamond
+    final length = size.height * (short ? 0.26 : 0.52);
     final ex = home.dx + length * sin(angle);
     final ey = home.dy - length * cos(angle);
 

@@ -265,10 +265,10 @@ class _EditPASheetState extends State<EditPASheet> {
                 label: 'Hits',
                 color: const Color(0xFF2E7D32),
                 results: const [
-                  (PlayResult.single, '1B'),
-                  (PlayResult.double_, '2B'),
-                  (PlayResult.triple, '3B'),
-                  (PlayResult.homeRun, 'HR'),
+                  (PlayResult.single, '1B', false),
+                  (PlayResult.double_, '2B', false),
+                  (PlayResult.triple, '3B', false),
+                  (PlayResult.homeRun, 'HR', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -278,10 +278,11 @@ class _EditPASheetState extends State<EditPASheet> {
                 label: 'On Base',
                 color: const Color(0xFF1565C0),
                 results: const [
-                  (PlayResult.walk, 'BB'),
-                  (PlayResult.intentionalWalk, 'IBB'),
-                  (PlayResult.hitByPitch, 'HBP'),
-                  (PlayResult.droppedThirdStrike, 'K+'),
+                  (PlayResult.walk, 'BB', false),
+                  (PlayResult.intentionalWalk, 'IBB', false),
+                  (PlayResult.hitByPitch, 'HBP', false),
+                  (PlayResult.droppedThirdStrike, 'K+', false),
+                  (PlayResult.catchersInterference, 'CI', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -291,10 +292,10 @@ class _EditPASheetState extends State<EditPASheet> {
                 label: 'Outs',
                 color: const Color(0xFFC62828),
                 results: const [
-                  (PlayResult.strikeoutSwinging, 'K'),
-                  (PlayResult.strikeoutLooking, 'Kc'),
-                  (PlayResult.groundOut, 'GO'),
-                  (PlayResult.flyOut, 'FO'),
+                  (PlayResult.strikeoutSwinging, 'K', false),
+                  (PlayResult.strikeoutLooking, 'K', true),
+                  (PlayResult.groundOut, 'GO', false),
+                  (PlayResult.flyOut, 'FO', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -304,9 +305,9 @@ class _EditPASheetState extends State<EditPASheet> {
                 label: '',
                 color: const Color(0xFFC62828),
                 results: const [
-                  (PlayResult.lineOut, 'LO'),
-                  (PlayResult.doublePlay, 'DP'),
-                  (PlayResult.triplePlay, 'TP'),
+                  (PlayResult.lineOut, 'LO', false),
+                  (PlayResult.doublePlay, 'DP', false),
+                  (PlayResult.triplePlay, 'TP', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -316,10 +317,10 @@ class _EditPASheetState extends State<EditPASheet> {
                 label: 'Special',
                 color: const Color(0xFFE65100),
                 results: const [
-                  (PlayResult.error, 'E'),
-                  (PlayResult.fieldersChoice, 'FC'),
-                  (PlayResult.sacrificeBunt, 'SAC Bunt'),
-                  (PlayResult.sacrificeFly, 'SAC Fly'),
+                  (PlayResult.error, 'E', false),
+                  (PlayResult.fieldersChoice, 'FC', false),
+                  (PlayResult.sacrificeBunt, 'SAC Bunt', false),
+                  (PlayResult.sacrificeFly, 'SAC Fly', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -525,7 +526,7 @@ class _SectionLabel extends StatelessWidget {
 class _ResultRow extends StatelessWidget {
   final String label;
   final Color color;
-  final List<(PlayResult, String)> results;
+  final List<(PlayResult, String, bool)> results;
   final PlayResult? selected;
   final ValueChanged<PlayResult> onTap;
 
@@ -543,7 +544,7 @@ class _ResultRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 52,
-          child: text.isNotEmpty
+          child: label.isNotEmpty
               ? Text(label,
                   style: TextStyle(
                       color: color.withValues(alpha: 0.85),
@@ -553,6 +554,19 @@ class _ResultRow extends StatelessWidget {
         ),
         ...results.map((r) {
           final isSelected = selected == r.$1;
+          final labelWidget = r.$3
+              ? Transform.scale(scaleX: -1, child: Text(r.$2,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  )))
+              : Text(r.$2,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ));
           return Expanded(
             child: GestureDetector(
               onTap: () => onTap(r.$1),
@@ -571,14 +585,7 @@ class _ResultRow extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  r.$2,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
+                child: labelWidget,
               ),
             ),
           );
@@ -586,8 +593,6 @@ class _ResultRow extends StatelessWidget {
       ],
     );
   }
-
-  String get text => label;
 }
 
 class _FielderGrid extends StatelessWidget {

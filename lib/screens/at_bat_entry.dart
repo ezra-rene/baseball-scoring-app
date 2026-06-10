@@ -10,6 +10,8 @@ Future<PlateAppearance?> showAtBatEntry(
   required bool topOfInning,
   required String batterName,
   required int battingOrder,
+  int initialBalls = 0,
+  int initialStrikes = 0,
 }) {
   return showModalBottomSheet<PlateAppearance>(
     context: context,
@@ -20,6 +22,8 @@ Future<PlateAppearance?> showAtBatEntry(
       topOfInning: topOfInning,
       batterName: batterName,
       battingOrder: battingOrder,
+      initialBalls: initialBalls,
+      initialStrikes: initialStrikes,
     ),
   );
 }
@@ -29,6 +33,8 @@ class AtBatEntrySheet extends StatefulWidget {
   final bool topOfInning;
   final String batterName;
   final int battingOrder;
+  final int initialBalls;
+  final int initialStrikes;
 
   const AtBatEntrySheet({
     super.key,
@@ -36,6 +42,8 @@ class AtBatEntrySheet extends StatefulWidget {
     required this.topOfInning,
     required this.batterName,
     required this.battingOrder,
+    this.initialBalls = 0,
+    this.initialStrikes = 0,
   });
 
   @override
@@ -50,10 +58,19 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
   bool _reachedSecond = false;
   bool _reachedThird = false;
   bool _scored = false;
+  late int _balls;
+  late int _strikes;
 
   // For fielder notation
   final List<int> _selectedFielders = []; // positions 1-9 selected in order
   bool _isError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _balls = widget.initialBalls;
+    _strikes = widget.initialStrikes;
+  }
 
   void _onResultSelected(PlayResult r) {
     setState(() {
@@ -91,6 +108,8 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
       reachedThird: _reachedThird,
       scored: _scored,
       hitDirection: _hitDirection,
+      pitchBalls: _balls,
+      pitchStrikes: _strikes,
     );
     Navigator.pop(context, pa);
   }
@@ -148,6 +167,18 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                 ),
               ),
 
+              // --- Pitch Count ---
+              _SectionLabel('Pitch Count'),
+              const SizedBox(height: 8),
+              _PitchCountRow(
+                balls: _balls,
+                strikes: _strikes,
+                onBall: () => setState(() { if (_balls < 4) _balls++; }),
+                onStrike: () => setState(() { if (_strikes < 3) _strikes++; }),
+                onReset: () => setState(() { _balls = 0; _strikes = 0; }),
+              ),
+              const SizedBox(height: 16),
+
               _SectionLabel('Result'),
               const SizedBox(height: 8),
 
@@ -156,10 +187,10 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                 label: 'Hits',
                 color: const Color(0xFF2E7D32),
                 results: const [
-                  (PlayResult.single, '1B'),
-                  (PlayResult.double_, '2B'),
-                  (PlayResult.triple, '3B'),
-                  (PlayResult.homeRun, 'HR'),
+                  (PlayResult.single, '1B', false),
+                  (PlayResult.double_, '2B', false),
+                  (PlayResult.triple, '3B', false),
+                  (PlayResult.homeRun, 'HR', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -171,10 +202,11 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                 label: 'On Base',
                 color: const Color(0xFF1565C0),
                 results: const [
-                  (PlayResult.walk, 'BB'),
-                  (PlayResult.intentionalWalk, 'IBB'),
-                  (PlayResult.hitByPitch, 'HBP'),
-                  (PlayResult.droppedThirdStrike, 'K+'),
+                  (PlayResult.walk, 'BB', false),
+                  (PlayResult.intentionalWalk, 'IBB', false),
+                  (PlayResult.hitByPitch, 'HBP', false),
+                  (PlayResult.droppedThirdStrike, 'K+', false),
+                  (PlayResult.catchersInterference, 'CI', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -186,10 +218,10 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                 label: 'Outs',
                 color: const Color(0xFFC62828),
                 results: const [
-                  (PlayResult.strikeoutSwinging, 'K'),
-                  (PlayResult.strikeoutLooking, 'Kc'),
-                  (PlayResult.groundOut, 'GO'),
-                  (PlayResult.flyOut, 'FO'),
+                  (PlayResult.strikeoutSwinging, 'K', false),
+                  (PlayResult.strikeoutLooking, 'K', true),
+                  (PlayResult.groundOut, 'GO', false),
+                  (PlayResult.flyOut, 'FO', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -200,9 +232,9 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                 label: '',
                 color: const Color(0xFFC62828),
                 results: const [
-                  (PlayResult.lineOut, 'LO'),
-                  (PlayResult.doublePlay, 'DP'),
-                  (PlayResult.triplePlay, 'TP'),
+                  (PlayResult.lineOut, 'LO', false),
+                  (PlayResult.doublePlay, 'DP', false),
+                  (PlayResult.triplePlay, 'TP', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -214,10 +246,10 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                 label: 'Special',
                 color: const Color(0xFFE65100),
                 results: const [
-                  (PlayResult.error, 'E'),
-                  (PlayResult.fieldersChoice, 'FC'),
-                  (PlayResult.sacrificeBunt, 'SAC Bunt'),
-                  (PlayResult.sacrificeFly, 'SAC Fly'),
+                  (PlayResult.error, 'E', false),
+                  (PlayResult.fieldersChoice, 'FC', false),
+                  (PlayResult.sacrificeBunt, 'SAC Bunt', false),
+                  (PlayResult.sacrificeFly, 'SAC Fly', false),
                 ],
                 selected: _result,
                 onTap: _onResultSelected,
@@ -409,7 +441,7 @@ class _SectionLabel extends StatelessWidget {
 class _ResultRow extends StatelessWidget {
   final String label;
   final Color color;
-  final List<(PlayResult, String)> results;
+  final List<(PlayResult, String, bool)> results;
   final PlayResult? selected;
   final ValueChanged<PlayResult> onTap;
 
@@ -438,6 +470,19 @@ class _ResultRow extends StatelessWidget {
           const SizedBox(width: 52),
         ...results.map((r) {
           final isSelected = selected == r.$1;
+          final labelWidget = r.$3
+              ? Transform.scale(scaleX: -1, child: Text(r.$2,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  )))
+              : Text(r.$2,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ));
           return Expanded(
             child: GestureDetector(
               onTap: () => onTap(r.$1),
@@ -452,14 +497,7 @@ class _ResultRow extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  r.$2,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
+                child: labelWidget,
               ),
             ),
           );
@@ -569,6 +607,95 @@ class _BaseToggleRow extends StatelessWidget {
           active: scored,
           color: Colors.green.shade600,
           onTap: () => onChanged(reachedFirst, reachedSecond, reachedThird, !scored),
+        ),
+      ],
+    );
+  }
+}
+
+class _PitchCountRow extends StatelessWidget {
+  final int balls;
+  final int strikes;
+  final VoidCallback onBall;
+  final VoidCallback onStrike;
+  final VoidCallback onReset;
+
+  const _PitchCountRow({
+    required this.balls,
+    required this.strikes,
+    required this.onBall,
+    required this.onStrike,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Balls
+        Expanded(
+          child: GestureDetector(
+            onTap: onBall,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B5E20).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade700),
+              ),
+              child: Column(
+                children: [
+                  Text('$balls',
+                      style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold)),
+                  const Text('Balls',
+                      style: TextStyle(color: Colors.white54, fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Strikes
+        Expanded(
+          child: GestureDetector(
+            onTap: onStrike,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC62828).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade700),
+              ),
+              child: Column(
+                children: [
+                  Text('$strikes',
+                      style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold)),
+                  const Text('Strikes',
+                      style: TextStyle(color: Colors.white54, fontSize: 11)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Reset
+        GestureDetector(
+          onTap: onReset,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: const Icon(Icons.refresh, color: Colors.white38, size: 20),
+          ),
         ),
       ],
     );
