@@ -104,6 +104,7 @@ enum PlayResult {
   triplePlay,
   droppedThirdStrike,
   catchersInterference,
+  infieldHit,
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +226,7 @@ class PlateAppearance {
         PlayResult.fieldersChoice,
         PlayResult.droppedThirdStrike,
         PlayResult.catchersInterference,
+        PlayResult.infieldHit,
       }.contains(r);
 
   static bool defaultReachedSecond(PlayResult r) =>
@@ -240,6 +242,7 @@ class PlateAppearance {
         PlayResult.double_,
         PlayResult.triple,
         PlayResult.homeRun,
+        PlayResult.infieldHit,
       }.contains(result);
 
   bool get isOut => const {
@@ -303,6 +306,8 @@ class PlateAppearance {
         return 'K+';
       case PlayResult.catchersInterference:
         return 'CI';
+      case PlayResult.infieldHit:
+        return fielderNotation.isEmpty ? 'IH' : 'IH${fielderNotation}';
     }
   }
 

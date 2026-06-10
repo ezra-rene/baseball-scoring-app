@@ -341,6 +341,8 @@ class _GameCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       summary.awayTeamName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: summary.awayScore > summary.homeScore
                             ? Colors.white
@@ -380,6 +382,8 @@ class _GameCard extends StatelessWidget {
                     child: Text(
                       summary.homeTeamName,
                       textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: summary.homeScore > summary.awayScore
                             ? Colors.white
@@ -550,8 +554,13 @@ class _InfoChip extends StatelessWidget {
       children: [
         Icon(icon, size: 11, color: Colors.white38),
         const SizedBox(width: 3),
-        Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 160),
+          child: Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        ),
       ],
     );
   }

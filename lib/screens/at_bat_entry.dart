@@ -88,8 +88,10 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
 
   String get _fielderNotation {
     if (_selectedFielders.isEmpty) return '';
-    if (_result == PlayResult.error) return _selectedFielders.first.toString();
-    if (_result == PlayResult.flyOut || _result == PlayResult.lineOut) {
+    if (_result == PlayResult.error ||
+        _result == PlayResult.flyOut ||
+        _result == PlayResult.lineOut ||
+        _result == PlayResult.infieldHit) {
       return _selectedFielders.first.toString();
     }
     return _selectedFielders.join('-');
@@ -192,9 +194,52 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                   (PlayResult.triple, '3B', false),
                   (PlayResult.homeRun, 'HR', false),
                 ],
-                selected: _result,
+                selected: (_result == PlayResult.infieldHit) ? PlayResult.single : _result,
                 onTap: _onResultSelected,
               ),
+              if (_result == PlayResult.single || _result == PlayResult.infieldHit) ...[
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _result = _result == PlayResult.infieldHit
+                        ? PlayResult.single
+                        : PlayResult.infieldHit;
+                    _selectedFielders.clear();
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _result == PlayResult.infieldHit
+                          ? const Color(0xFF2E7D32)
+                          : const Color(0xFF2E7D32).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _result == PlayResult.infieldHit
+                            ? const Color(0xFF2E7D32)
+                            : const Color(0xFF2E7D32).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _result == PlayResult.infieldHit
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          color: Colors.white70,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Infield Hit',
+                            style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
 
               // --- ON BASE (no hit) ---
@@ -259,6 +304,7 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
               if (_result != null && const {
                 PlayResult.single, PlayResult.double_,
                 PlayResult.triple, PlayResult.homeRun,
+                PlayResult.infieldHit,
                 PlayResult.groundOut, PlayResult.flyOut, PlayResult.lineOut,
                 PlayResult.doublePlay, PlayResult.triplePlay,
                 PlayResult.fieldersChoice, PlayResult.error,
@@ -285,13 +331,16 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                     PlayResult.fieldersChoice,
                     PlayResult.sacrificeBunt,
                     PlayResult.sacrificeFly,
+                    PlayResult.infieldHit,
                   }.contains(_result)) ...[
                 const SizedBox(height: 16),
                 _SectionLabel(_isError
                     ? 'Fielder (Error on)'
                     : _result == PlayResult.flyOut || _result == PlayResult.lineOut
                         ? 'Fielder (who caught it)'
-                        : 'Fielder(s) — tap each in order  e.g. SS→1B = 6, 3'),
+                        : _result == PlayResult.infieldHit
+                            ? 'Fielder (who handled it)'
+                            : 'Fielder(s) — tap each in order  e.g. SS→1B = 6, 3'),
                 const SizedBox(height: 8),
                 _FielderGrid(
                   selected: _selectedFielders,
@@ -299,6 +348,7 @@ class _AtBatEntrySheetState extends State<AtBatEntrySheet> {
                     setState(() {
                       if (_result == PlayResult.flyOut ||
                           _result == PlayResult.lineOut ||
+                          _result == PlayResult.infieldHit ||
                           _isError) {
                         _selectedFielders
                           ..clear()

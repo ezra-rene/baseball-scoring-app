@@ -106,15 +106,19 @@ class _EditPASheetState extends State<EditPASheet> {
         PlayResult.fieldersChoice,
         PlayResult.sacrificeBunt,
         PlayResult.sacrificeFly,
+        PlayResult.infieldHit,
       }.contains(_result);
 
   bool get _isFlyOrLine =>
       _result == PlayResult.flyOut || _result == PlayResult.lineOut;
 
+  bool get _isSingleFielder =>
+      _isFlyOrLine || _isError || _result == PlayResult.infieldHit;
+
   String get _fielderNotation {
     if (_selectedFielders.isEmpty) return '';
     if (_isError) return _selectedFielders.first.toString();
-    if (_isFlyOrLine) return _selectedFielders.first.toString();
+    if (_isSingleFielder) return _selectedFielders.first.toString();
     return _selectedFielders.join('-');
   }
 
@@ -270,9 +274,52 @@ class _EditPASheetState extends State<EditPASheet> {
                   (PlayResult.triple, '3B', false),
                   (PlayResult.homeRun, 'HR', false),
                 ],
-                selected: _result,
+                selected: (_result == PlayResult.infieldHit) ? PlayResult.single : _result,
                 onTap: _onResultSelected,
               ),
+              if (_result == PlayResult.single || _result == PlayResult.infieldHit) ...[
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _result = _result == PlayResult.infieldHit
+                        ? PlayResult.single
+                        : PlayResult.infieldHit;
+                    _selectedFielders.clear();
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _result == PlayResult.infieldHit
+                          ? const Color(0xFF2E7D32)
+                          : const Color(0xFF2E7D32).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _result == PlayResult.infieldHit
+                            ? const Color(0xFF2E7D32)
+                            : const Color(0xFF2E7D32).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _result == PlayResult.infieldHit
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          color: Colors.white70,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Infield Hit',
+                            style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               _ResultRow(
                 label: 'On Base',
@@ -330,6 +377,7 @@ class _EditPASheetState extends State<EditPASheet> {
               if (const {
                 PlayResult.single, PlayResult.double_,
                 PlayResult.triple, PlayResult.homeRun,
+                PlayResult.infieldHit,
                 PlayResult.groundOut, PlayResult.flyOut, PlayResult.lineOut,
                 PlayResult.doublePlay, PlayResult.triplePlay,
                 PlayResult.fieldersChoice, PlayResult.error,
@@ -351,13 +399,15 @@ class _EditPASheetState extends State<EditPASheet> {
                     ? 'Fielder (Error on)'
                     : _isFlyOrLine
                         ? 'Fielder (who caught it)'
-                        : 'Fielder(s) — tap each in order  e.g. SS→1B = 6, 3'),
+                        : _result == PlayResult.infieldHit
+                            ? 'Fielder (who handled it)'
+                            : 'Fielder(s) — tap each in order  e.g. SS→1B = 6, 3'),
                 const SizedBox(height: 8),
                 _FielderGrid(
                   selected: _selectedFielders,
                   onTap: (n) {
                     setState(() {
-                      if (_isFlyOrLine || _isError) {
+                      if (_isSingleFielder) {
                         _selectedFielders
                           ..clear()
                           ..add(n);
@@ -371,7 +421,7 @@ class _EditPASheetState extends State<EditPASheet> {
                     });
                   },
                 ),
-                if (_selectedFielders.isNotEmpty && !_isFlyOrLine)
+                if (_selectedFielders.isNotEmpty && !_isSingleFielder)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(

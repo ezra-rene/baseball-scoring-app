@@ -127,7 +127,9 @@ class _DiamondPainter extends CustomPainter {
     final showFielderLine = hasFielders &&
         pa!.displayText != pa!.fielderNotation &&
         pa!.result != PlayResult.flyOut &&
-        pa!.result != PlayResult.lineOut;
+        pa!.result != PlayResult.lineOut &&
+        pa!.result != PlayResult.error &&
+        pa!.result != PlayResult.infieldHit;
     final fontSize = size.width * 0.17;
     final textColor = pa!.isOut ? pathColor.withValues(alpha: 0.9) : pathColor;
     // If there's a separate fielder notation line, shift main text up slightly
@@ -153,8 +155,8 @@ class _DiamondPainter extends CustomPainter {
 
     // --- Hit direction arrow ---
     if (pa!.hitDirection != null) {
-      final isBunt = pa!.result == PlayResult.sacrificeBunt;
-      _drawHitDirection(canvas, size, pa!.hitDirection!, home, short: isBunt);
+      final isShortHit = pa!.result == PlayResult.sacrificeBunt || pa!.result == PlayResult.infieldHit;
+      _drawHitDirection(canvas, size, pa!.hitDirection!, home, short: isShortHit);
     }
 
     // --- Ball-Strike count — upper right corner ---
@@ -249,6 +251,17 @@ class _DiamondPainter extends CustomPainter {
         canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
   }
 
+  /// Distance from home plate to the diamond edge in direction [angle].
+  /// The diamond's upper two sides are: right (1B→2B) and left (3B→2B).
+  /// Ray hits right side at 2r/(sinA+cosA), left side at 2r/(cosA-sinA).
+  double _edgeDistance(double angle, double r) {
+    final sinA = sin(angle);
+    final cosA = cos(angle);
+    final toRight = (sinA + cosA) > 0.001 ? 2 * r / (sinA + cosA) : double.infinity;
+    final toLeft  = (cosA - sinA) > 0.001 ? 2 * r / (cosA - sinA) : double.infinity;
+    return min(toRight, toLeft);
+  }
+
   void _drawHitDirection(Canvas canvas, Size size, HitDirection dir, Offset home, {bool short = false}) {
     // Angle from vertical: negative = left, positive = right
     const angles = {
@@ -261,7 +274,10 @@ class _DiamondPainter extends CustomPainter {
       HitDirection.line1B:       0.70,
     };
     final angle = angles[dir]!;
-    final length = size.height * (short ? 0.26 : 0.52);
+    final r = size.width * 0.32;
+    // Extend just past the diamond edge; bunts stay inside (half distance)
+    final edgeDist = _edgeDistance(angle, r);
+    final length = short ? edgeDist * 0.5 : edgeDist + r * 0.18;
     final ex = home.dx + length * sin(angle);
     final ey = home.dy - length * cos(angle);
 

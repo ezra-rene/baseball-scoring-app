@@ -548,7 +548,7 @@ class _ScoreHeader extends StatelessWidget {
         GestureDetector(
           onTap: () => _editTeamName(context, false),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 80),
+            constraints: const BoxConstraints(maxWidth: 60),
             child: Text(
               game.awayTeam!.name,
               style: const TextStyle(
@@ -574,7 +574,7 @@ class _ScoreHeader extends StatelessWidget {
         GestureDetector(
           onTap: () => _editTeamName(context, true),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 80),
+            constraints: const BoxConstraints(maxWidth: 60),
             child: Text(
               game.homeTeam!.name,
               style: const TextStyle(
