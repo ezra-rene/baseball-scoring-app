@@ -245,8 +245,13 @@ class _GameCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isComplete = summary.status == GameStatus.complete;
-    final date = summary.startTime;
-    final dateStr = '${date.month}/${date.day}/${date.year}  ${_formatTime(date)}';
+    // Use GameInfo date/time if set, otherwise fall back to save timestamp
+    final hasGameDate = summary.gameDate != null;
+    final displayDate = summary.gameDate ?? summary.startTime;
+    final dateStr = '${displayDate.month}/${displayDate.day}/${displayDate.year}';
+    final timeStr = (summary.gameTimeHour != null && summary.gameTimeMinute != null)
+        ? _formatHM(summary.gameTimeHour!, summary.gameTimeMinute!)
+        : hasGameDate ? '' : _formatTime(summary.startTime);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -290,10 +295,6 @@ class _GameCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  Text(dateStr,
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 11)),
-                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: onDelete,
                     child: const Icon(Icons.delete_outline,
@@ -301,43 +302,25 @@ class _GameCard extends StatelessWidget {
                   ),
                 ],
               ),
-              // Event name / venue (only if set)
-              if (summary.eventName.isNotEmpty || summary.venue.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    if (summary.eventName.isNotEmpty) ...[
-                      const Icon(Icons.emoji_events_outlined,
-                          size: 12, color: Colors.white38),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          summary.eventName,
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                    if (summary.eventName.isNotEmpty && summary.venue.isNotEmpty)
-                      const Text('  ·  ',
-                          style: TextStyle(color: Colors.white24, fontSize: 12)),
-                    if (summary.venue.isNotEmpty) ...[
-                      const Icon(Icons.location_on_outlined,
-                          size: 12, color: Colors.white38),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          summary.venue,
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
+              // Date / time / event / venue info row
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 10,
+                runSpacing: 4,
+                children: [
+                  // Date
+                  _InfoChip(Icons.calendar_today_outlined, dateStr),
+                  // Time (if available)
+                  if (timeStr.isNotEmpty)
+                    _InfoChip(Icons.access_time, timeStr),
+                  // Event
+                  if (summary.eventName.isNotEmpty)
+                    _InfoChip(Icons.emoji_events_outlined, summary.eventName),
+                  // Venue
+                  if (summary.venue.isNotEmpty)
+                    _InfoChip(Icons.location_on_outlined, summary.venue),
+                ],
+              ),
               const SizedBox(height: 10),
               // Score line
               Row(
@@ -423,5 +406,31 @@ class _GameCard extends StatelessWidget {
     final m = dt.minute.toString().padLeft(2, '0');
     final ampm = dt.hour >= 12 ? 'PM' : 'AM';
     return '$h:$m $ampm';
+  }
+
+  String _formatHM(int hour, int minute) {
+    final h = hour > 12 ? hour - 12 : hour == 0 ? 12 : hour;
+    final m = minute.toString().padLeft(2, '0');
+    final ampm = hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m $ampm';
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _InfoChip(this.icon, this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: Colors.white38),
+        const SizedBox(width: 3),
+        Text(label,
+            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      ],
+    );
   }
 }

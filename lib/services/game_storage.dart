@@ -15,6 +15,9 @@ class GameSummary {
   final DateTime startTime;
   final String venue;
   final String eventName;
+  final DateTime? gameDate;
+  final int? gameTimeHour;
+  final int? gameTimeMinute;
 
   const GameSummary({
     required this.id,
@@ -28,6 +31,9 @@ class GameSummary {
     required this.startTime,
     this.venue = '',
     this.eventName = '',
+    this.gameDate,
+    this.gameTimeHour,
+    this.gameTimeMinute,
   });
 
   String get statusLabel {
@@ -53,6 +59,9 @@ class GameSummary {
         startTime: game.startTime,
         venue: game.info.venue,
         eventName: game.info.eventName,
+        gameDate: game.info.gameDate,
+        gameTimeHour: game.info.gameTimeHour,
+        gameTimeMinute: game.info.gameTimeMinute,
       );
 }
 
