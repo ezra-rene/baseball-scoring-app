@@ -274,50 +274,36 @@ class _EditPASheetState extends State<EditPASheet> {
                   (PlayResult.triple, '3B', false),
                   (PlayResult.homeRun, 'HR', false),
                 ],
-                selected: (_result == PlayResult.infieldHit) ? PlayResult.single : _result,
+                selected: (_result == PlayResult.infieldHit)
+                    ? PlayResult.single
+                    : (_result == PlayResult.groundRuleDouble)
+                        ? PlayResult.double_
+                        : _result,
                 onTap: _onResultSelected,
               ),
               if (_result == PlayResult.single || _result == PlayResult.infieldHit) ...[
                 const SizedBox(height: 6),
-                GestureDetector(
+                _HitModifierToggle(
+                  label: 'Infield Hit',
+                  active: _result == PlayResult.infieldHit,
                   onTap: () => setState(() {
                     _result = _result == PlayResult.infieldHit
                         ? PlayResult.single
                         : PlayResult.infieldHit;
                     _selectedFielders.clear();
                   }),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: _result == PlayResult.infieldHit
-                          ? const Color(0xFF2E7D32)
-                          : const Color(0xFF2E7D32).withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _result == PlayResult.infieldHit
-                            ? const Color(0xFF2E7D32)
-                            : const Color(0xFF2E7D32).withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _result == PlayResult.infieldHit
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          color: Colors.white70,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('Infield Hit',
-                            style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
+                ),
+              ],
+              if (_result == PlayResult.double_ || _result == PlayResult.groundRuleDouble) ...[
+                const SizedBox(height: 6),
+                _HitModifierToggle(
+                  label: 'Ground Rule Double',
+                  active: _result == PlayResult.groundRuleDouble,
+                  onTap: () => setState(() {
+                    _result = _result == PlayResult.groundRuleDouble
+                        ? PlayResult.double_
+                        : PlayResult.groundRuleDouble;
+                  }),
                 ),
               ],
               const SizedBox(height: 8),
@@ -377,7 +363,7 @@ class _EditPASheetState extends State<EditPASheet> {
               if (const {
                 PlayResult.single, PlayResult.double_,
                 PlayResult.triple, PlayResult.homeRun,
-                PlayResult.infieldHit,
+                PlayResult.infieldHit, PlayResult.groundRuleDouble,
                 PlayResult.groundOut, PlayResult.flyOut, PlayResult.lineOut,
                 PlayResult.doublePlay, PlayResult.triplePlay,
                 PlayResult.fieldersChoice, PlayResult.error,
@@ -389,6 +375,8 @@ class _EditPASheetState extends State<EditPASheet> {
                 HitDirectionSelector(
                   selected: _hitDirection,
                   onChanged: (d) => setState(() => _hitDirection = d),
+                  isInfield: _selectedFielders.isNotEmpty &&
+                      _selectedFielders.every((f) => f <= 6),
                 ),
               ],
 
@@ -784,6 +772,43 @@ class _BaseChip extends StatelessWidget {
                 color: active ? Colors.white : Colors.white54,
                 fontWeight: FontWeight.w600,
                 fontSize: 13)),
+      ),
+    );
+  }
+}
+
+class _HitModifierToggle extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _HitModifierToggle({required this.label, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFF2E7D32);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? color : color.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: active ? color : color.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(active ? Icons.check_box : Icons.check_box_outline_blank,
+                color: Colors.white70, size: 18),
+            const SizedBox(width: 8),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }

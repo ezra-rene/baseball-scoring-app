@@ -153,10 +153,25 @@ class _DiamondPainter extends CustomPainter {
       );
     }
 
+    // --- Out on base paths marker ---
+    if (pa!.outAtBase != null) {
+      final outBase = pa!.outAtBase!;
+      final Offset outCorner;
+      if (outBase == 1) outCorner = first;
+      else if (outBase == 2) outCorner = second;
+      else outCorner = third;
+      _drawOutMarker(canvas, outCorner, size);
+    }
+
     // --- Hit direction arrow ---
     if (pa!.hitDirection != null) {
       final isShortHit = pa!.result == PlayResult.sacrificeBunt || pa!.result == PlayResult.infieldHit;
-      _drawHitDirection(canvas, size, pa!.hitDirection!, home, short: isShortHit);
+      final isInfieldPlay = !isShortHit &&
+          pa!.fielderNotation.isNotEmpty &&
+          RegExp(r'^[1-6]').hasMatch(pa!.fielderNotation) &&
+          !RegExp(r'[7-9]').hasMatch(pa!.fielderNotation);
+      _drawHitDirection(canvas, size, pa!.hitDirection!, home,
+          short: isShortHit, infield: isInfieldPlay);
     }
 
     // --- Ball-Strike count — upper right corner ---
@@ -204,6 +219,19 @@ class _DiamondPainter extends CustomPainter {
         );
       }
     }
+  }
+
+  void _drawOutMarker(Canvas canvas, Offset center, Size size) {
+    final s = size.width * 0.07;
+    final paint = Paint()
+      ..color = const Color(0xFFEF5350).withValues(alpha: 0.9)
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(center.dx - s, center.dy - s),
+        Offset(center.dx + s, center.dy + s), paint);
+    canvas.drawLine(Offset(center.dx + s, center.dy - s),
+        Offset(center.dx - s, center.dy + s), paint);
   }
 
   void _drawBackwardsK(Canvas canvas, Offset center, double fontSize, Color color) {
@@ -262,7 +290,7 @@ class _DiamondPainter extends CustomPainter {
     return min(toRight, toLeft);
   }
 
-  void _drawHitDirection(Canvas canvas, Size size, HitDirection dir, Offset home, {bool short = false}) {
+  void _drawHitDirection(Canvas canvas, Size size, HitDirection dir, Offset home, {bool short = false, bool infield = false}) {
     // Angle from vertical: negative = left, positive = right
     const angles = {
       HitDirection.line3B:      -0.70,
@@ -275,9 +303,9 @@ class _DiamondPainter extends CustomPainter {
     };
     final angle = angles[dir]!;
     final r = size.width * 0.32;
-    // Extend just past the diamond edge; bunts stay inside (half distance)
     final edgeDist = _edgeDistance(angle, r);
-    final length = short ? edgeDist * 0.5 : edgeDist + r * 0.18;
+    // bunts/IH: inside diamond; infield GO: just to edge; outfield: past edge
+    final length = short ? edgeDist * 0.5 : infield ? edgeDist * 0.75 : edgeDist + r * 0.18;
     final ex = home.dx + length * sin(angle);
     final ey = home.dy - length * cos(angle);
 

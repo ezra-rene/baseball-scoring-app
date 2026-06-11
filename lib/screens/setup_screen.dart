@@ -20,6 +20,10 @@ class _SetupScreenState extends State<SetupScreen>
   final _homeNameCtrl = TextEditingController(text: 'Home');
   final _awayNameCtrl = TextEditingController(text: 'Away');
   GameInfo _gameInfo = GameInfo();
+  final _homePitcherNameCtrl = TextEditingController();
+  final _homePitcherNumCtrl = TextEditingController();
+  final _awayPitcherNameCtrl = TextEditingController();
+  final _awayPitcherNumCtrl = TextEditingController();
 
   // 9 players per team — name and jersey controllers
   final List<TextEditingController> _homeNames =
@@ -56,7 +60,9 @@ class _SetupScreenState extends State<SetupScreen>
   void dispose() {
     _tabs.dispose();
     for (final c in [..._homeNames, ..._homeNums, ..._awayNames, ..._awayNums,
-        _homeNameCtrl, _awayNameCtrl]) {
+        _homeNameCtrl, _awayNameCtrl,
+        _homePitcherNameCtrl, _homePitcherNumCtrl,
+        _awayPitcherNameCtrl, _awayPitcherNumCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -221,6 +227,10 @@ class _SetupScreenState extends State<SetupScreen>
       homeLineup: _buildLineup(_homeNames, _homeNums, _homePositions),
       awayLineup: _buildLineup(_awayNames, _awayNums, _awayPositions),
       gameInfo: _gameInfo,
+      homeStartingPitcher: _homePitcherNameCtrl.text.trim(),
+      homeStartingPitcherJersey: int.tryParse(_homePitcherNumCtrl.text.trim()) ?? 0,
+      awayStartingPitcher: _awayPitcherNameCtrl.text.trim(),
+      awayStartingPitcherJersey: int.tryParse(_awayPitcherNumCtrl.text.trim()) ?? 0,
     );
     Navigator.pushReplacement(
       context,
@@ -268,6 +278,8 @@ class _SetupScreenState extends State<SetupScreen>
                 setState(() => _awayPositions[i] = pos),
             onTeamNameChanged: () => setState(() {}),
             onScanLineup: () => _scanLineup(isHome: false),
+            pitcherNameCtrl: _awayPitcherNameCtrl,
+            pitcherNumCtrl: _awayPitcherNumCtrl,
           ),
           _TeamSetupPage(
             teamNameCtrl: _homeNameCtrl,
@@ -278,6 +290,8 @@ class _SetupScreenState extends State<SetupScreen>
                 setState(() => _homePositions[i] = pos),
             onTeamNameChanged: () => setState(() {}),
             onScanLineup: () => _scanLineup(isHome: true),
+            pitcherNameCtrl: _homePitcherNameCtrl,
+            pitcherNumCtrl: _homePitcherNumCtrl,
           ),
           _GameDetailsPage(
             info: _gameInfo,
@@ -297,6 +311,8 @@ class _TeamSetupPage extends StatelessWidget {
   final void Function(int, FieldPosition) onPositionChanged;
   final VoidCallback onTeamNameChanged;
   final VoidCallback onScanLineup;
+  final TextEditingController pitcherNameCtrl;
+  final TextEditingController pitcherNumCtrl;
 
   const _TeamSetupPage({
     required this.teamNameCtrl,
@@ -306,6 +322,8 @@ class _TeamSetupPage extends StatelessWidget {
     required this.onPositionChanged,
     required this.onTeamNameChanged,
     required this.onScanLineup,
+    required this.pitcherNameCtrl,
+    required this.pitcherNumCtrl,
   });
 
   @override
@@ -344,6 +362,31 @@ class _TeamSetupPage extends StatelessWidget {
               position: positions[i],
               onPositionChanged: (pos) => onPositionChanged(i, pos),
             )),
+        const SizedBox(height: 24),
+        _SectionLabel('Starting Pitcher (optional)'),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            SizedBox(
+              width: 70,
+              child: TextField(
+                controller: pitcherNumCtrl,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: _inputDeco('#'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: pitcherNameCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: _inputDeco('Pitcher name'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -520,7 +563,7 @@ class _GameDetailsPageState extends State<_GameDetailsPage> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _gameDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
+      firstDate: DateTime(1900),
       lastDate: DateTime(2100),
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
@@ -787,7 +830,7 @@ class _LineupReviewSheet extends StatelessWidget {
             const Divider(color: Colors.white12, height: 1),
             // Buttons
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + MediaQuery.of(context).padding.bottom),
               child: Row(
                 children: [
                   Expanded(

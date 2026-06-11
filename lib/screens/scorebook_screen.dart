@@ -67,8 +67,10 @@ class _ScorebookScreenState extends State<ScorebookScreen>
 
     if (pa == null || !context.mounted) return;
 
-    // Capture which team is batting BEFORE recording (inning may flip after)
+    // Capture inning state and batting team BEFORE recording (game object mutates)
     final wasAwayBatting = game.isTopOfInning;
+    final inningBefore = game.currentInning;
+    final battingTeamBefore = game.battingTeam;
 
     // Record the PA — get runners that were on base before this PA
     final runnersBeforePA = provider.recordPlateAppearance(pa);
@@ -78,14 +80,14 @@ class _ScorebookScreenState extends State<ScorebookScreen>
 
     // Only ask about runner advancement if the inning is still going
     final inningEnded = provider.game == null ||
-        provider.game!.isTopOfInning != game.isTopOfInning ||
-        provider.game!.currentInning != game.currentInning;
+        provider.game!.isTopOfInning != wasAwayBatting ||
+        provider.game!.currentInning != inningBefore;
 
     if (runnersBeforePA.isNotEmpty && !inningEnded && context.mounted) {
       final advancement = await showRunnerAdvancement(
         context,
         runners: runnersBeforePA,
-        battingTeam: game.battingTeam,
+        battingTeam: battingTeamBefore,
         batterResult: pa.displayText,
         batterPlayResult: pa.result,
       );
@@ -222,29 +224,36 @@ class _ScorebookScreenState extends State<ScorebookScreen>
         children: [
           _GameStatusBar(game: game),
           Expanded(
-            child: TabBarView(
-              controller: _tabs,
+            child: Column(
               children: [
-                _ScorebookGrid(
-                    team: game.awayTeam!,
-                    game: game,
-                    isBatting: isTop,
-                    onEditPA: (pa, name, inning, isHome) =>
-                        _editPA(context, pa: pa, playerName: name, inning: inning, isHomeTeam: isHome),
-                    onAddPA: (name, slot, inning, isHome) =>
-                        _addPA(context, playerName: name, slotIndex: slot, inning: inning, isHomeTeam: isHome, isTopOfInning: true),
-                    onEditPlayer: (player, idx, isHome, order) =>
-                        _editPlayer(context, player: player, lineupIndex: idx, isHomeTeam: isHome, battingOrder: order)),
-                _ScorebookGrid(
-                    team: game.homeTeam!,
-                    game: game,
-                    isBatting: !isTop,
-                    onEditPA: (pa, name, inning, isHome) =>
-                        _editPA(context, pa: pa, playerName: name, inning: inning, isHomeTeam: isHome),
-                    onAddPA: (name, slot, inning, isHome) =>
-                        _addPA(context, playerName: name, slotIndex: slot, inning: inning, isHomeTeam: isHome, isTopOfInning: false),
-                    onEditPlayer: (player, idx, isHome, order) =>
-                        _editPlayer(context, player: player, lineupIndex: idx, isHomeTeam: isHome, battingOrder: order)),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabs,
+                    children: [
+                      _ScorebookGrid(
+                          team: game.awayTeam!,
+                          game: game,
+                          isBatting: isTop,
+                          onEditPA: (pa, name, inning, isHome) =>
+                              _editPA(context, pa: pa, playerName: name, inning: inning, isHomeTeam: isHome),
+                          onAddPA: (name, slot, inning, isHome) =>
+                              _addPA(context, playerName: name, slotIndex: slot, inning: inning, isHomeTeam: isHome, isTopOfInning: true),
+                          onEditPlayer: (player, idx, isHome, order) =>
+                              _editPlayer(context, player: player, lineupIndex: idx, isHomeTeam: isHome, battingOrder: order)),
+                      _ScorebookGrid(
+                          team: game.homeTeam!,
+                          game: game,
+                          isBatting: !isTop,
+                          onEditPA: (pa, name, inning, isHome) =>
+                              _editPA(context, pa: pa, playerName: name, inning: inning, isHomeTeam: isHome),
+                          onAddPA: (name, slot, inning, isHome) =>
+                              _addPA(context, playerName: name, slotIndex: slot, inning: inning, isHomeTeam: isHome, isTopOfInning: false),
+                          onEditPlayer: (player, idx, isHome, order) =>
+                              _editPlayer(context, player: player, lineupIndex: idx, isHomeTeam: isHome, battingOrder: order)),
+                    ],
+                  ),
+                ),
+                _PitchingSection(game: game),
               ],
             ),
           ),
@@ -252,32 +261,35 @@ class _ScorebookScreenState extends State<ScorebookScreen>
       ),
 
       floatingActionButton: game.status == GameStatus.inProgress
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // Base running event button
-                FloatingActionButton.extended(
-                  heroTag: 'base_running',
-                  onPressed: () => _recordBaseRunningEvent(context),
-                  backgroundColor: const Color(0xFF5D4037),
-                  icon: const Icon(Icons.directions_run, color: Colors.white),
-                  label: const Text('Base Running',
-                      style: TextStyle(color: Colors.white)),
-                ),
-                const SizedBox(height: 12),
-                // Record PA button
-                FloatingActionButton.extended(
-                  heroTag: 'record_pa',
-                  onPressed: () => _recordAtBat(context),
-                  backgroundColor: const Color(0xFF2E7D32),
-                  icon: const Icon(Icons.sports_baseball, color: Colors.white),
-                  label: Text(
-                    'Record PA — ${game.battingTeam.currentBatter.currentPlayer.name}',
-                    style: const TextStyle(color: Colors.white),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 130),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Base running event button
+                  FloatingActionButton.extended(
+                    heroTag: 'base_running',
+                    onPressed: () => _recordBaseRunningEvent(context),
+                    backgroundColor: const Color(0xFF5D4037),
+                    icon: const Icon(Icons.directions_run, color: Colors.white),
+                    label: const Text('Base Running',
+                        style: TextStyle(color: Colors.white)),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  // Record PA button
+                  FloatingActionButton.extended(
+                    heroTag: 'record_pa',
+                    onPressed: () => _recordAtBat(context),
+                    backgroundColor: const Color(0xFF2E7D32),
+                    icon: const Icon(Icons.sports_baseball, color: Colors.white),
+                    label: Text(
+                      'Record PA — ${game.battingTeam.currentBatter.currentPlayer.name}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
             )
           : null,
       ),
@@ -332,6 +344,8 @@ class _ScorebookScreenState extends State<ScorebookScreen>
     if (pa == null || !context.mounted) return;
 
     final wasAwayBatting = game.isTopOfInning;
+    final inningBefore = game.currentInning;
+    final battingTeamBefore = game.battingTeam;
     final runnersBeforePA = provider.addPlateAppearanceToSlot(
       pa,
       isHomeTeam: isHomeTeam,
@@ -341,14 +355,14 @@ class _ScorebookScreenState extends State<ScorebookScreen>
     // Handle runner advancement (same as normal PA flow)
     int autoRbis = pa.scored ? 1 : 0;
     final inningEnded = provider.game == null ||
-        provider.game!.isTopOfInning != game.isTopOfInning ||
-        provider.game!.currentInning != game.currentInning;
+        provider.game!.isTopOfInning != wasAwayBatting ||
+        provider.game!.currentInning != inningBefore;
 
     if (runnersBeforePA.isNotEmpty && !inningEnded && context.mounted) {
       final advancement = await showRunnerAdvancement(
         context,
         runners: runnersBeforePA,
-        battingTeam: game.battingTeam,
+        battingTeam: battingTeamBefore,
         batterResult: pa.displayText,
         batterPlayResult: pa.result,
       );
@@ -1145,5 +1159,445 @@ class _BaseDiamondPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BaseDiamondPainter old) => old.occupied != occupied;
+}
+
+// ---------------------------------------------------------------------------
+// Pitching Section
+// ---------------------------------------------------------------------------
+
+class _PitchingSection extends StatelessWidget {
+  final Game game;
+  const _PitchingSection({required this.game});
+
+  // Compute stats for one pitching appearance given the opposing batting team
+  // and whether this pitcher pitches in the top half (isTopHalf = true for home pitchers).
+  Map<String, int> _stats(PitchingAppearance pa, int endInning,
+      TeamGame battingTeam, bool isTopHalf) {
+    int h = 0, r = 0, er = 0, bb = 0, k = 0, balls = 0, strikes = 0, outs = 0;
+    for (final slot in battingTeam.lineup) {
+      for (final bpa in slot.plateAppearances) {
+        if (bpa.topOfInning != isTopHalf) continue;
+        if (bpa.inning < pa.startInning || bpa.inning >= endInning) continue;
+        if (bpa.isHit) h++;
+        if (bpa.scored) r++;
+        if (bpa.scored && bpa.earnedRun) er++;
+        if ({PlayResult.walk, PlayResult.intentionalWalk, PlayResult.hitByPitch}
+            .contains(bpa.result)) bb++;
+        if ({PlayResult.strikeoutSwinging, PlayResult.strikeoutLooking}
+            .contains(bpa.result)) k++;
+        balls += bpa.pitchBalls;
+        strikes += bpa.pitchStrikes;
+        outs += bpa.outsRecorded;
+      }
+    }
+    return {
+      'h': h, 'r': r, 'er': er, 'bb': bb, 'k': k,
+      'balls': balls, 'strikes': strikes, 'outs': outs,
+    };
+  }
+
+  String _ip(int outs) => '${outs ~/ 3}.${outs % 3}';
+
+  @override
+  Widget build(BuildContext context) {
+    final home = game.homeTeam!;
+    final away = game.awayTeam!;
+    // Home pitchers face away batters in TOP halves; away pitchers face home batters in BOTTOM halves
+    final homePitchers = home.pitchingLog;
+    final awayPitchers = away.pitchingLog;
+
+    if (homePitchers.isEmpty && awayPitchers.isEmpty) {
+      return _emptyState(context);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D2137),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
+            child: Row(
+              children: [
+                const Text('PITCHING',
+                    style: TextStyle(
+                        color: Color(0xFF90CAF9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _showChangePitcherSheet(context),
+                  icon: const Icon(Icons.swap_horiz, size: 16),
+                  label: const Text('Change Pitcher', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFE8A87C),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Column headers
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                const SizedBox(width: 24), // jersey
+                const SizedBox(width: 8),
+                const Expanded(child: SizedBox()), // name
+                for (final col in ['IP', 'H', 'R', 'ER', 'BB', 'K', 'B-S'])
+                  SizedBox(
+                    width: col == 'B-S' ? 46 : 28,
+                    child: Text(col,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          // Rows
+          SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (awayPitchers.isNotEmpty) ...[
+                  _teamLabel(away.name),
+                  ...List.generate(awayPitchers.length, (i) {
+                    final pa = awayPitchers[i];
+                    final endInning = i + 1 < awayPitchers.length
+                        ? awayPitchers[i + 1].startInning
+                        : 999;
+                    final s = _stats(pa, endInning, home, false);
+                    return _PitcherRow(pa: pa, stats: s, ipStr: _ip(s['outs']!));
+                  }),
+                ],
+                if (homePitchers.isNotEmpty) ...[
+                  _teamLabel(home.name),
+                  ...List.generate(homePitchers.length, (i) {
+                    final pa = homePitchers[i];
+                    final endInning = i + 1 < homePitchers.length
+                        ? homePitchers[i + 1].startInning
+                        : 999;
+                    final s = _stats(pa, endInning, away, true);
+                    return _PitcherRow(pa: pa, stats: s, ipStr: _ip(s['outs']!));
+                  }),
+                ],
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D2137),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Text('PITCHING',
+              style: TextStyle(
+                  color: Color(0xFF90CAF9),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5)),
+          const SizedBox(width: 12),
+          const Text('No pitchers recorded',
+              style: TextStyle(color: Colors.white38, fontSize: 12)),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: () => _showChangePitcherSheet(context),
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('Add Pitcher', style: TextStyle(fontSize: 12)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFE8A87C),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _teamLabel(String name) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 0, 2),
+        child: Text(name,
+            style: const TextStyle(
+                color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+      );
+
+  void _showChangePitcherSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ChangePitcherSheet(game: game),
+    );
+  }
+}
+
+class _PitcherRow extends StatelessWidget {
+  final PitchingAppearance pa;
+  final Map<String, int> stats;
+  final String ipStr;
+  const _PitcherRow({required this.pa, required this.stats, required this.ipStr});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: Text(
+              pa.jerseyNumber > 0 ? '#${pa.jerseyNumber}' : '',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(pa.pitcherName,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+          for (final entry in [
+            ('IP', ipStr),
+            ('H', '${stats['h']}'),
+            ('R', '${stats['r']}'),
+            ('ER', '${stats['er']}'),
+            ('BB', '${stats['bb']}'),
+            ('K', '${stats['k']}'),
+            ('B-S', '${stats['balls']}-${stats['strikes']}'),
+          ])
+            SizedBox(
+              width: entry.$1 == 'B-S' ? 46 : 28,
+              child: Text(entry.$2,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: entry.$1 == 'IP'
+                          ? Colors.white70
+                          : entry.$1 == 'K'
+                              ? Colors.greenAccent.shade400
+                              : entry.$1 == 'R' || entry.$1 == 'ER'
+                                  ? Colors.red.shade300
+                                  : Colors.white54,
+                      fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChangePitcherSheet extends StatefulWidget {
+  final Game game;
+  const _ChangePitcherSheet({required this.game});
+
+  @override
+  State<_ChangePitcherSheet> createState() => _ChangePitcherSheetState();
+}
+
+class _ChangePitcherSheetState extends State<_ChangePitcherSheet> {
+  bool _isHomeTeam = true;
+  final _nameCtrl = TextEditingController();
+  final _numCtrl = TextEditingController();
+  late int _inning;
+
+  @override
+  void initState() {
+    super.initState();
+    _inning = widget.game.currentInning;
+    _isHomeTeam = !widget.game.isTopOfInning; // home pitches in top, away in bottom
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _numCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF0D2137),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 16),
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const Text('Pitching Change',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            // Team toggle
+            Row(
+              children: [
+                Expanded(
+                  child: _TeamToggle(
+                    label: widget.game.awayTeam!.name,
+                    selected: !_isHomeTeam,
+                    onTap: () => setState(() => _isHomeTeam = false),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _TeamToggle(
+                    label: widget.game.homeTeam!.name,
+                    selected: _isHomeTeam,
+                    onTap: () => setState(() => _isHomeTeam = true),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Name + number
+            Row(
+              children: [
+                SizedBox(
+                  width: 70,
+                  child: TextField(
+                    controller: _numCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: '#',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      filled: true,
+                      fillColor: const Color(0xFF152030),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _nameCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Pitcher name',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      filled: true,
+                      fillColor: const Color(0xFF152030),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Inning
+            Row(
+              children: [
+                const Text('Entering inning:',
+                    style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const Spacer(),
+                IconButton(
+                  onPressed: _inning > 1 ? () => setState(() => _inning--) : null,
+                  icon: const Icon(Icons.remove_circle_outline, color: Colors.white54),
+                ),
+                Text('$_inning',
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: () => setState(() => _inning++),
+                  icon: const Icon(Icons.add_circle_outline, color: Colors.white54),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _nameCtrl.text.trim().isEmpty ? null : _confirm,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B4513),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Confirm Pitching Change',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirm() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    context.read<GameProvider>().addPitcherChange(
+      name: name,
+      jersey: int.tryParse(_numCtrl.text.trim()) ?? 0,
+      isHomeTeam: _isHomeTeam,
+      startInning: _inning,
+    );
+    Navigator.pop(context);
+  }
+}
+
+class _TeamToggle extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TeamToggle({required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF1565C0) : const Color(0xFF152030),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: selected ? Colors.lightBlueAccent : Colors.white24),
+        ),
+        alignment: Alignment.center,
+        child: Text(label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: selected ? Colors.white : Colors.white54,
+                fontWeight: FontWeight.w600,
+                fontSize: 13)),
+      ),
+    );
+  }
 }
 

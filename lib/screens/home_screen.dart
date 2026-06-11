@@ -449,17 +449,19 @@ class _DiamondLogoPainter extends CustomPainter {
     final third = Offset(cx - r,  cy);
 
     // ── Outfield grass arc (green fan) ──────────────────────────────────
+    // Arc centered on home plate, foul lines at exactly ±45° (NW and NE)
     final grassPaint = Paint()
       ..color = const Color(0xFF1B5E20).withValues(alpha: 0.85)
       ..style = PaintingStyle.fill;
+    final foulLen = size.width * 0.72;
     final grassPath = Path()
       ..moveTo(home.dx, home.dy)
-      ..lineTo(cx - size.width * 0.48, cy - size.height * 0.05)
+      ..lineTo(home.dx + foulLen * cos(-3 * pi / 4),
+               home.dy + foulLen * sin(-3 * pi / 4))
       ..arcTo(
-        Rect.fromCircle(center: Offset(cx, cy + r * 0.15), radius: size.width * 0.50),
-        pi + 0.38, pi - 0.76, false,
+        Rect.fromCircle(center: home, radius: foulLen),
+        -3 * pi / 4, pi / 2, false,
       )
-      ..lineTo(home.dx, home.dy)
       ..close();
     canvas.drawPath(grassPath, grassPaint);
 
@@ -512,13 +514,13 @@ class _DiamondLogoPainter extends CustomPainter {
         ..close();
       canvas.drawPath(bp, basePaint);
     }
-    // Home plate (pentagon shape)
+    // Home plate: flat edge toward pitcher (top), point toward catcher (bottom)
     final hp = Path()
-      ..moveTo(home.dx,        home.dy - bs)
-      ..lineTo(home.dx + bs,   home.dy - bs * 0.3)
-      ..lineTo(home.dx + bs * 0.6, home.dy + bs)
-      ..lineTo(home.dx - bs * 0.6, home.dy + bs)
-      ..lineTo(home.dx - bs,   home.dy - bs * 0.3)
+      ..moveTo(home.dx - bs,        home.dy - bs * 0.5)  // top-left
+      ..lineTo(home.dx + bs,        home.dy - bs * 0.5)  // top-right (flat, pitcher side)
+      ..lineTo(home.dx + bs,        home.dy + bs * 0.2)  // right side
+      ..lineTo(home.dx,             home.dy + bs)         // bottom point (catcher side)
+      ..lineTo(home.dx - bs,        home.dy + bs * 0.2)  // left side
       ..close();
     canvas.drawPath(hp, basePaint);
 

@@ -134,19 +134,30 @@ class LineupOcrService {
       }
     }
 
-    // 2. Position: scan all tokens, longest match first
+    // 2. Position: scan all tokens, longest match first.
+    // Also try OCR-corrected variants: '8' → 'B' (e.g. "18" → "1B", "38" → "3B")
     final posEntries = _posTokens.entries.toList()
       ..sort((a, b) => b.key.length.compareTo(a.key.length));
+
+    String _ocrFixPos(String t) {
+      // Replace trailing '8' with 'B' to catch "18"→"1B", "38"→"3B", "28"→"2B"
+      // and leading '0' with 'C' to catch "0" misread catcher label
+      return t.replaceAll(RegExp(r'8$'), 'B').replaceAll(RegExp(r'^0$'), 'C');
+    }
 
     for (int i = 0; i < tokens.length; i++) {
       if (used.contains(i)) continue;
       final upper = tokens[i].toUpperCase().replaceAll('.', '');
-      for (final entry in posEntries) {
-        if (upper == entry.key) {
-          position = entry.value;
-          used.add(i);
-          break;
+      final candidates = [upper, _ocrFixPos(upper)];
+      for (final candidate in candidates) {
+        for (final entry in posEntries) {
+          if (candidate == entry.key) {
+            position = entry.value;
+            used.add(i);
+            break;
+          }
         }
+        if (position != null) break;
       }
       if (position != null) break;
     }
@@ -184,6 +195,10 @@ class LineupOcrService {
         .join(' ')
         .replaceAll(RegExp(r'^[\.\-]+|[\.\-]+$'), '')
         .trim();
+
+    // Strip a single leading lowercase letter that merged with the name
+    // e.g. "cGIRARDI" → "GIRARDI" (OCR merged position 'C' with the name)
+    name = name.replaceAll(RegExp(r'^[a-z](?=[A-Z])'), '');
 
     // Skip lines that look like headers or have no useful info
     if (name.isEmpty && position == null && jerseyNumber == null) return null;

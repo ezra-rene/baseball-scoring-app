@@ -105,6 +105,7 @@ enum PlayResult {
   droppedThirdStrike,
   catchersInterference,
   infieldHit,
+  groundRuleDouble,
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +156,7 @@ class PlateAppearance {
   final bool reachedThird;
   final bool scored;
   final bool earnedRun;
+  final int? outAtBase; // 1/2/3 if runner was put out on the bases
   final List<String> baseEvents; // e.g. ["SB3", "WP"]
   final int pitchBalls;
   final int pitchStrikes;
@@ -172,6 +174,7 @@ class PlateAppearance {
     bool? reachedThird,
     bool? scored,
     this.earnedRun = true,
+    this.outAtBase,
     List<String>? baseEvents,
     this.pitchBalls = 0,
     this.pitchStrikes = 0,
@@ -189,6 +192,8 @@ class PlateAppearance {
     bool? reachedThird,
     bool? scored,
     int? rbis,
+    int? outAtBase,
+    bool clearOutAtBase = false,
     List<String>? baseEvents,
     int? pitchBalls,
     int? pitchStrikes,
@@ -207,6 +212,7 @@ class PlateAppearance {
       reachedThird: reachedThird ?? this.reachedThird,
       scored: scored ?? this.scored,
       earnedRun: earnedRun,
+      outAtBase: clearOutAtBase ? null : (outAtBase ?? this.outAtBase),
       baseEvents: baseEvents ?? List.from(this.baseEvents),
       pitchBalls: pitchBalls ?? this.pitchBalls,
       pitchStrikes: pitchStrikes ?? this.pitchStrikes,
@@ -227,10 +233,11 @@ class PlateAppearance {
         PlayResult.droppedThirdStrike,
         PlayResult.catchersInterference,
         PlayResult.infieldHit,
+        PlayResult.groundRuleDouble,
       }.contains(r);
 
   static bool defaultReachedSecond(PlayResult r) =>
-      const {PlayResult.double_, PlayResult.triple, PlayResult.homeRun}.contains(r);
+      const {PlayResult.double_, PlayResult.triple, PlayResult.homeRun, PlayResult.groundRuleDouble}.contains(r);
 
   static bool defaultReachedThird(PlayResult r) =>
       const {PlayResult.triple, PlayResult.homeRun}.contains(r);
@@ -243,6 +250,7 @@ class PlateAppearance {
         PlayResult.triple,
         PlayResult.homeRun,
         PlayResult.infieldHit,
+        PlayResult.groundRuleDouble,
       }.contains(result);
 
   bool get isOut => const {
@@ -308,6 +316,8 @@ class PlateAppearance {
         return 'CI';
       case PlayResult.infieldHit:
         return fielderNotation.isEmpty ? 'IH' : 'IH${fielderNotation}';
+      case PlayResult.groundRuleDouble:
+        return 'GRD';
     }
   }
 
@@ -323,6 +333,7 @@ class PlateAppearance {
     'reachedThird': reachedThird,
     'scored': scored,
     'earnedRun': earnedRun,
+    'outAtBase': outAtBase,
     'baseEvents': baseEvents,
     'pitchBalls': pitchBalls,
     'pitchStrikes': pitchStrikes,
@@ -341,12 +352,45 @@ class PlateAppearance {
     reachedThird: j['reachedThird'] ?? false,
     scored: j['scored'] ?? false,
     earnedRun: j['earnedRun'] ?? true,
+    outAtBase: j['outAtBase'] as int?,
     baseEvents: List<String>.from(j['baseEvents'] ?? []),
     pitchBalls: j['pitchBalls'] ?? 0,
     pitchStrikes: j['pitchStrikes'] ?? 0,
     hitDirection: j['hitDirection'] != null
         ? HitDirection.values[j['hitDirection']]
         : null,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pitching Appearance — one pitcher's stint in a game
+// ---------------------------------------------------------------------------
+
+class PitchingAppearance {
+  final String id;
+  String pitcherName;
+  int jerseyNumber;
+  final int startInning;
+
+  PitchingAppearance({
+    String? id,
+    required this.pitcherName,
+    required this.jerseyNumber,
+    required this.startInning,
+  }) : id = id ?? '${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(9999)}';
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'pitcherName': pitcherName,
+    'jerseyNumber': jerseyNumber,
+    'startInning': startInning,
+  };
+
+  factory PitchingAppearance.fromJson(Map<String, dynamic> j) => PitchingAppearance(
+    id: j['id'],
+    pitcherName: j['pitcherName'] ?? '',
+    jerseyNumber: j['jerseyNumber'] ?? 0,
+    startInning: j['startInning'] ?? 1,
   );
 }
 
@@ -428,10 +472,12 @@ class TeamGame {
   String name;
   final List<LineupSlot> lineup;
   int currentBatterIndex;
+  List<PitchingAppearance> pitchingLog;
 
   TeamGame({required this.name, required List<Player> players})
       : lineup = players.map((p) => LineupSlot(initialPlayer: p)).toList(),
-        currentBatterIndex = 0;
+        currentBatterIndex = 0,
+        pitchingLog = [];
 
   LineupSlot get currentBatter => lineup[currentBatterIndex];
 
@@ -465,6 +511,7 @@ class TeamGame {
     'name': name,
     'lineup': lineup.map((s) => s.toJson()).toList(),
     'currentBatterIndex': currentBatterIndex,
+    'pitchingLog': pitchingLog.map((p) => p.toJson()).toList(),
   };
 
   factory TeamGame.fromJson(Map<String, dynamic> j) {
@@ -480,6 +527,9 @@ class TeamGame {
       team.lineup[i].plateAppearances = slots[i].plateAppearances;
     }
     team.currentBatterIndex = j['currentBatterIndex'] ?? 0;
+    team.pitchingLog = ((j['pitchingLog'] as List?) ?? [])
+        .map((p) => PitchingAppearance.fromJson(p as Map<String, dynamic>))
+        .toList();
     return team;
   }
 }

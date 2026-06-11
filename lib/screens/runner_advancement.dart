@@ -25,6 +25,9 @@ int smartDefaultBase(int currentBase, PlayResult batterResult) {
     case PlayResult.sacrificeFly:
       // Runner on 3rd scores; others hold (may tag up — let scorer decide)
       return currentBase == 3 ? 4 : currentBase;
+    case PlayResult.fieldersChoice:
+      // The forced runner is typically put out; default to Out
+      return 0;
     default:
       // No automatic advancement on outs, strikeouts, etc.
       return currentBase;

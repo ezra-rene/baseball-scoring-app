@@ -87,6 +87,10 @@ class GameProvider extends ChangeNotifier {
     required List<Player> homeLineup,
     required List<Player> awayLineup,
     GameInfo? gameInfo,
+    String? homeStartingPitcher,
+    int? homeStartingPitcherJersey,
+    String? awayStartingPitcher,
+    int? awayStartingPitcherJersey,
   }) {
     _game = Game(
         homeTeamName: homeTeamName,
@@ -95,6 +99,20 @@ class GameProvider extends ChangeNotifier {
       ..homeTeam = TeamGame(name: homeTeamName, players: homeLineup)
       ..awayTeam = TeamGame(name: awayTeamName, players: awayLineup)
       ..status = GameStatus.inProgress;
+    if (homeStartingPitcher != null && homeStartingPitcher.isNotEmpty) {
+      _game!.homeTeam!.pitchingLog.add(PitchingAppearance(
+        pitcherName: homeStartingPitcher,
+        jerseyNumber: homeStartingPitcherJersey ?? 0,
+        startInning: 1,
+      ));
+    }
+    if (awayStartingPitcher != null && awayStartingPitcher.isNotEmpty) {
+      _game!.awayTeam!.pitchingLog.add(PitchingAppearance(
+        pitcherName: awayStartingPitcher,
+        jerseyNumber: awayStartingPitcherJersey ?? 0,
+        startInning: 1,
+      ));
+    }
     _runners.clear();
     _autoSave();
     notifyListeners();
@@ -158,12 +176,25 @@ class GameProvider extends ChangeNotifier {
       final idx = slot.plateAppearances.indexWhere((pa) => pa.id == paId);
       if (idx != -1) {
         final old = slot.plateAppearances[idx];
-        slot.plateAppearances[idx] = old.copyWith(
-          reachedFirst: newBase >= 1,
-          reachedSecond: newBase >= 2,
-          reachedThird: newBase >= 3,
-          scored: newBase >= 4,
-        );
+        if (newBase == 0) {
+          // Runner was put out — draw path all the way to the out base.
+          // The out base is one beyond the last base they successfully reached.
+          final outBase = old.reachedThird ? 3 : old.reachedSecond ? 3 : old.reachedFirst ? 2 : 1;
+          slot.plateAppearances[idx] = old.copyWith(
+            reachedFirst: outBase >= 1,
+            reachedSecond: outBase >= 2,
+            reachedThird: outBase >= 3,
+            outAtBase: outBase,
+          );
+        } else {
+          slot.plateAppearances[idx] = old.copyWith(
+            reachedFirst: newBase >= 1,
+            reachedSecond: newBase >= 2,
+            reachedThird: newBase >= 3,
+            scored: newBase >= 4,
+            clearOutAtBase: true,
+          );
+        }
         break;
       }
     }
@@ -276,6 +307,24 @@ class GameProvider extends ChangeNotifier {
       runner.currentBase = event.newBase;
     }
 
+    _autoSave();
+    notifyListeners();
+  }
+
+  /// Add or change the pitcher for a team. [startInning] defaults to current inning.
+  void addPitcherChange({
+    required String name,
+    required int jersey,
+    required bool isHomeTeam,
+    int? startInning,
+  }) {
+    if (_game == null) return;
+    final team = isHomeTeam ? _game!.homeTeam! : _game!.awayTeam!;
+    team.pitchingLog.add(PitchingAppearance(
+      pitcherName: name,
+      jerseyNumber: jersey,
+      startInning: startInning ?? _game!.currentInning,
+    ));
     _autoSave();
     notifyListeners();
   }

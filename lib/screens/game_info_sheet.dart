@@ -57,7 +57,7 @@ class _GameInfoSheetState extends State<GameInfoSheet> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _gameDate ?? DateTime.now(),
-      firstDate: DateTime(2000),
+      firstDate: DateTime(1900),
       lastDate: DateTime(2100),
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
